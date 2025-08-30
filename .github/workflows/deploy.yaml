@@ -16,7 +16,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Build and push Docker image
+    - name: Build Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -92,10 +92,8 @@ jobs:
           YUKASSA_TEST_MODE=${{ secrets.YUKASSA_TEST_MODE || 'false' }}
           EOF
           
-          # Копируем docker-compose.yml
+          # Копируем docker-compose.yml (без version)
           cat > docker-compose.yml << 'EOF'
-          version: '3.3'
-          
           services:
             postgres:
               image: postgres:15-alpine
@@ -134,7 +132,7 @@ jobs:
                 retries: 3
               
             app:
-              image: lingua-ai:latest
+              build: .
               container_name: lingua-ai-app
               ports:
                 - "8080:8080"
