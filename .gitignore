@@ -130,4 +130,4 @@ Thumbs.db
 
 # Application specific
 config.yaml
-config.yml 
+config.yml .env.backup
