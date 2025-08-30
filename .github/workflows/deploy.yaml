@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -16,13 +16,21 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Build Docker image
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: false
-        load: true
-        tags: lingua-ai:latest
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository }}:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
@@ -46,6 +54,9 @@ jobs:
           
           # Останавливаем текущие контейнеры
           docker-compose down || true
+          
+          # Очищаем директорию
+          rm -rf *
           
           # Создаем .env файл с переменными окружения
           cat > .env << 'EOF'
@@ -92,63 +103,7 @@ jobs:
           YUKASSA_TEST_MODE=${{ secrets.YUKASSA_TEST_MODE || 'false' }}
           EOF
           
-          # Копируем Dockerfile
-          cat > Dockerfile << 'EOF'
-          # Используем официальный образ Go (последняя версия)
-          FROM golang:1.23-alpine AS builder
-          
-          # Устанавливаем необходимые пакеты
-          RUN apk add --no-cache git ca-certificates tzdata
-          
-          # Устанавливаем рабочую директорию
-          WORKDIR /app
-          
-          # Копируем файлы зависимостей
-          COPY go.mod go.sum ./
-          
-          # Загружаем зависимости
-          RUN go mod download
-          
-          # Копируем исходный код
-          COPY . .
-          
-          # Собираем приложение
-          RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
-          
-          # Финальный образ
-          FROM alpine:latest
-          
-          # Устанавливаем необходимые пакеты
-          RUN apk --no-cache add ca-certificates tzdata
-          
-          # Создаем пользователя для безопасности
-          RUN addgroup -g 1001 -S appgroup && \
-              adduser -u 1001 -S appuser -G appgroup
-          
-          # Устанавливаем рабочую директорию
-          WORKDIR /app
-          
-          # Копируем бинарный файл из builder
-          COPY --from=builder /app/main .
-          
-          # Копируем миграции
-          COPY --from=builder /app/scripts ./scripts
-          
-          # Создаем директорию для логов
-          RUN mkdir -p /app/logs && \
-              chown -R appuser:appgroup /app
-          
-          # Переключаемся на непривилегированного пользователя
-          USER appuser
-          
-          # Открываем порт (если понадобится для health check)
-          EXPOSE 8080
-          
-          # Запускаем приложение
-          CMD ["./main"]
-          EOF
-          
-          # Копируем docker-compose.yml (без version)
+          # Создаем docker-compose.yml с готовым образом
           cat > docker-compose.yml << 'EOF'
           services:
             postgres:
@@ -188,7 +143,7 @@ jobs:
                 retries: 3
               
             app:
-              build: .
+              image: ghcr.io/${{ github.repository }}:latest
               container_name: lingua-ai-app
               ports:
                 - "8080:8080"
@@ -212,10 +167,10 @@ jobs:
           # Создаем директорию для скриптов
           mkdir -p scripts/migrations
           
-          # Копируем миграции из репозитория
-          if [ -d "/tmp/scripts" ]; then
-            cp -r /tmp/scripts/* scripts/
-          fi
+          # Клонируем репозиторий для миграций
+          git clone --depth 1 https://github.com/${{ github.repository }}.git temp
+          cp -r temp/scripts/* scripts/ 2>/dev/null || true
+          rm -rf temp
           
           # Проверяем, что Docker Compose установлен
           docker-compose --version
