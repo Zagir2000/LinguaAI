@@ -1,5 +1,9 @@
 name: Deploy to Cloud Server
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches: [ main, master ]
