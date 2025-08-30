@@ -90,7 +90,7 @@ jobs:
           
           # Database Configuration
           DB_HOST=postgres
-          DB_PORT=5432
+          DB_PORT=5433
           DB_USER=lingua_user
           DB_PASSWORD=lingua_password
           DB_NAME=lingua_ai
@@ -121,7 +121,7 @@ jobs:
                 - postgres_data:/var/lib/postgresql/data
                 - ./scripts/migrations:/docker-entrypoint-initdb.d
               ports:
-                - "5432:5432"
+                - "5433:5432"
               restart: unless-stopped
               healthcheck:
                 test: ["CMD-SHELL", "pg_isready -U lingua_user -d lingua_ai"]
