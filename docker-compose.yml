@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: lingua-ai-postgres
+    command: ["postgres", "-c", "listen_addresses=*", "-c", "shared_buffers=128MB", "-c", "max_connections=50"]
+    environment:
+      POSTGRES_DB: lingua_ai
+      POSTGRES_USER: lingua_user
+      POSTGRES_PASSWORD: lingua_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lingua_user -d lingua_ai"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Whisper API сервер
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: whisper
+    volumes:
+      - ./audio:/app/audio  # Папка с аудио файлами для транскриба
+    ports:
+      - "8081:9000"  # API порт
+    environment:
+      - ASR_MODEL=${WHISPER_MODEL:-small}  # 🎯 Модель: small (старт) или medium (качество)
+      - ASR_TASK=transcribe   # 📝 Задача: транскрибация
+      - ASR_DEVICE=cpu        # 🔧 CPU (или gpu если есть)
+      - ASR_COMPUTE_TYPE=${WHISPER_COMPUTE:-int8} # 📊 int8 (экономия) или float32 (качество)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Приложение Lingua AI
+  app:
+    build: .
+    container_name: lingua-ai-app
+    environment:
+      # Telegram Bot Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      
+      # AI Provider Configuration
+      AI_PROVIDER: ${AI_PROVIDER:-deepseek}
+      AI_MODEL: ${AI_MODEL:-deepseek-chat}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1000}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.7}
+      
+      # DeepSeek Configuration
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      
+      # OpenRouter Configuration (альтернатива)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-https://lingua-ai.ru}
+      OPENROUTER_SITE_NAME: ${OPENROUTER_SITE_NAME:-Lingua AI}
+      
+      # Whisper Configuration
+      WHISPER_API_URL: http://whisper:9000
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: lingua_user
+      DB_PASSWORD: lingua_password
+      DB_NAME: lingua_ai
+      DB_SSL_MODE: disable
+      
+      # Application Configuration
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_PORT: 8080
+      
+      # YooKassa Configuration
+      YUKASSA_SHOP_ID: ${YUKASSA_SHOP_ID:-test_shop_id}
+      YUKASSA_SECRET_KEY: ${YUKASSA_SECRET_KEY:-test_secret_key}
+      YUKASSA_TEST_MODE: ${YUKASSA_TEST_MODE:-true}
+    volumes:
+      - ./logs:/app/logs
+      - ./audio:/app/audio  # Общая папка для аудио файлов
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      whisper:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # # pgAdmin для управления базой данных (опционально)
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: lingua-ai-pgadmin
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@lingua-ai.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin123
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   ports:
+  #     - "5050:80"
+  #   depends_on:
+  #     - postgres
+  #   restart: unless-stopped
+  #   profiles:
+  #     - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  default:
+    name: lingua-ai-network 
