@@ -39,8 +39,12 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: ${{ secrets.SERVER_PORT || '22' }}
         script: |
+          # Создаем директорию для приложения
+          sudo mkdir -p /opt/lingua-ai
+          sudo chown $USER:$USER /opt/lingua-ai
+          cd /opt/lingua-ai
+          
           # Останавливаем текущие контейнеры
-          cd /opt/lingua-ai || mkdir -p /opt/lingua-ai && cd /opt/lingua-ai
           docker-compose down || true
           
           # Создаем .env файл с переменными окружения
@@ -90,7 +94,7 @@ jobs:
           
           # Копируем docker-compose.yml
           cat > docker-compose.yml << 'EOF'
-          version: '3.8'
+          version: '3.3'
           
           services:
             postgres:
@@ -118,10 +122,10 @@ jobs:
               ports:
                 - "8081:9000"
               environment:
-                ASR_MODEL: ${{ secrets.WHISPER_MODEL || 'small' }}
+                ASR_MODEL: small
                 ASR_TASK: transcribe
                 ASR_DEVICE: cpu
-                ASR_COMPUTE_TYPE: ${{ secrets.WHISPER_COMPUTE || 'int8' }}
+                ASR_COMPUTE_TYPE: int8
               restart: unless-stopped
               healthcheck:
                 test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/"]
@@ -154,10 +158,13 @@ jobs:
           # Создаем директорию для скриптов
           mkdir -p scripts/migrations
           
-          # Копируем миграции (если есть)
+          # Копируем миграции из репозитория
           if [ -d "/tmp/scripts" ]; then
             cp -r /tmp/scripts/* scripts/
           fi
+          
+          # Проверяем, что Docker Compose установлен
+          docker-compose --version
           
           # Запускаем контейнеры
           docker-compose up -d
