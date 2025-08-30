@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 
 -- Создание таблицы карточек для запоминания
-CREATE TABLE flashcards (
+CREATE TABLE IF NOT EXISTS flashcards (
     id BIGSERIAL PRIMARY KEY,
     word VARCHAR(255) NOT NULL,
     translation VARCHAR(500) NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE flashcards (
 );
 
 -- Создание таблицы пользовательских карточек
-CREATE TABLE user_flashcards (
+CREATE TABLE IF NOT EXISTS user_flashcards (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     flashcard_id BIGINT NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
@@ -28,23 +28,23 @@ CREATE TABLE user_flashcards (
 );
 
 -- Создание индексов для оптимизации
-CREATE INDEX idx_flashcards_word ON flashcards(word);
-CREATE INDEX idx_flashcards_level ON flashcards(level);
-CREATE INDEX idx_flashcards_category ON flashcards(category);
+CREATE INDEX IF NOT EXISTS idx_flashcards_word ON flashcards(word);
+CREATE INDEX IF NOT EXISTS idx_flashcards_level ON flashcards(level);
+CREATE INDEX IF NOT EXISTS idx_flashcards_category ON flashcards(category);
 
-CREATE INDEX idx_user_flashcards_user_id ON user_flashcards(user_id);
-CREATE INDEX idx_user_flashcards_is_learned ON user_flashcards(is_learned);
-CREATE INDEX idx_user_flashcards_next_review ON user_flashcards(next_review_at);
-CREATE INDEX idx_user_flashcards_user_next_review ON user_flashcards(user_id, next_review_at);
+CREATE INDEX IF NOT EXISTS idx_user_flashcards_user_id ON user_flashcards(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_flashcards_is_learned ON user_flashcards(is_learned);
+CREATE INDEX IF NOT EXISTS idx_user_flashcards_next_review ON user_flashcards(next_review_at);
+CREATE INDEX IF NOT EXISTS idx_user_flashcards_user_next_review ON user_flashcards(user_id, next_review_at);
 
 -- Добавление ограничений для карточек
-ALTER TABLE flashcards ADD CONSTRAINT chk_flashcard_level 
+ALTER TABLE flashcards ADD CONSTRAINT IF NOT EXISTS chk_flashcard_level 
     CHECK (level IN ('beginner', 'intermediate', 'advanced'));
 
-ALTER TABLE flashcards ADD CONSTRAINT chk_flashcard_category 
+ALTER TABLE flashcards ADD CONSTRAINT IF NOT EXISTS chk_flashcard_category 
     CHECK (category IN ('general', 'business', 'travel', 'food', 'technology', 'education', 'health'));
 
-ALTER TABLE user_flashcards ADD CONSTRAINT chk_difficulty 
+ALTER TABLE user_flashcards ADD CONSTRAINT IF NOT EXISTS chk_difficulty 
     CHECK (difficulty >= 0 AND difficulty <= 5);
 
 -- +goose StatementEnd

@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 
 -- Создание таблицы сообщений пользователей
-CREATE TABLE user_messages (
+CREATE TABLE IF NOT EXISTS user_messages (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL DEFAULT 'user', -- "user" или "assistant"
@@ -11,8 +11,8 @@ CREATE TABLE user_messages (
 );
 
 -- Создание индексов для оптимизации
-CREATE INDEX idx_user_messages_user_id ON user_messages(user_id);
-CREATE INDEX idx_user_messages_created_at ON user_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_messages_user_id ON user_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_messages_created_at ON user_messages(created_at);
 
 -- +goose StatementEnd
 

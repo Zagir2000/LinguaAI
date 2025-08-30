@@ -82,11 +82,41 @@ $$ LANGUAGE plpgsql;
 --     FOR EACH ROW
 --     EXECUTE FUNCTION auto_cleanup_messages();
 
--- Добавление комментариев
-COMMENT ON INDEX idx_user_messages_user_created_desc IS 'Составной индекс для оптимизации очистки старых сообщений';
-COMMENT ON FUNCTION cleanup_old_messages(BIGINT, INTEGER) IS 'Функция для очистки старых сообщений пользователя';
-COMMENT ON FUNCTION cleanup_all_users_messages(INTEGER) IS 'Функция для массовой очистки сообщений всех пользователей';
-COMMENT ON FUNCTION auto_cleanup_messages() IS 'Триггерная функция для автоматической очистки при превышении лимита';
+-- Добавление комментариев (с проверкой существования)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE indexname = 'idx_user_messages_user_created_desc' 
+        AND tablename = 'user_messages'
+    ) THEN
+        COMMENT ON INDEX idx_user_messages_user_created_desc IS 'Составной индекс для оптимизации очистки старых сообщений';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc 
+        WHERE proname = 'cleanup_old_messages' 
+        AND pronargs = 2
+    ) THEN
+        COMMENT ON FUNCTION cleanup_old_messages(BIGINT, INTEGER) IS 'Функция для очистки старых сообщений пользователя';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc 
+        WHERE proname = 'cleanup_all_users_messages' 
+        AND pronargs = 1
+    ) THEN
+        COMMENT ON FUNCTION cleanup_all_users_messages(INTEGER) IS 'Функция для массовой очистки сообщений всех пользователей';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc 
+        WHERE proname = 'auto_cleanup_messages' 
+        AND pronargs = 0
+    ) THEN
+        COMMENT ON FUNCTION auto_cleanup_messages() IS 'Триггерная функция для автоматической очистки при превышении лимита';
+    END IF;
+END $$;
 
 -- +goose StatementEnd
 

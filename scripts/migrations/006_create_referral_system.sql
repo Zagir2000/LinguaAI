@@ -2,12 +2,12 @@
 -- +goose StatementBegin
 
        -- Добавление полей для реферальной системы в таблицу users
-       ALTER TABLE users ADD COLUMN referral_code VARCHAR(20) UNIQUE NULL;
-       ALTER TABLE users ADD COLUMN referral_count INTEGER DEFAULT 0;
-       ALTER TABLE users ADD COLUMN referred_by BIGINT REFERENCES users(id);
+       ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(20) UNIQUE NULL;
+       ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0;
+       ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT REFERENCES users(id);
 
 -- Создание таблицы рефералов
-CREATE TABLE referrals (
+CREATE TABLE IF NOT EXISTS referrals (
     id BIGSERIAL PRIMARY KEY,
     referrer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     referred_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -18,14 +18,14 @@ CREATE TABLE referrals (
 );
 
 -- Создание индексов для оптимизации
-CREATE INDEX idx_users_referral_code ON users(referral_code);
-CREATE INDEX idx_users_referral_count ON users(referral_count);
-CREATE INDEX idx_users_referred_by ON users(referred_by);
+CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
+CREATE INDEX IF NOT EXISTS idx_users_referral_count ON users(referral_count);
+CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by);
 
-CREATE INDEX idx_referrals_referrer_id ON referrals(referrer_id);
-CREATE INDEX idx_referrals_referred_id ON referrals(referred_id);
-CREATE INDEX idx_referrals_status ON referrals(status);
-CREATE INDEX idx_referrals_created_at ON referrals(created_at);
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id ON referrals(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred_id ON referrals(referred_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals(status);
+CREATE INDEX IF NOT EXISTS idx_referrals_created_at ON referrals(created_at);
 
 -- Создание функции для генерации уникального реферального кода
 CREATE OR REPLACE FUNCTION generate_referral_code() 

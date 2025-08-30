@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 
 -- Создание таблицы пользователей
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     telegram_id BIGINT UNIQUE NOT NULL,
     username VARCHAR(255),
@@ -25,16 +25,16 @@ CREATE TABLE users (
 );
 
 -- Создание индексов для оптимизации
-CREATE INDEX idx_users_telegram_id ON users(telegram_id);
-CREATE INDEX idx_users_level ON users(level);
-CREATE INDEX idx_users_xp ON users(xp);
-CREATE INDEX idx_users_study_streak ON users(study_streak);
-CREATE INDEX idx_users_current_state ON users(current_state);
-CREATE INDEX idx_users_is_premium ON users(is_premium);
-CREATE INDEX idx_users_last_seen ON users(last_seen);
-CREATE INDEX idx_users_last_study_date ON users(last_study_date);
-CREATE INDEX idx_users_messages_reset_date ON users(messages_reset_date);
-CREATE INDEX idx_users_premium_expires_at ON users(premium_expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
+CREATE INDEX IF NOT EXISTS idx_users_level ON users(level);
+CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp);
+CREATE INDEX IF NOT EXISTS idx_users_study_streak ON users(study_streak);
+CREATE INDEX IF NOT EXISTS idx_users_current_state ON users(current_state);
+CREATE INDEX IF NOT EXISTS idx_users_is_premium ON users(is_premium);
+CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen);
+CREATE INDEX IF NOT EXISTS idx_users_last_study_date ON users(last_study_date);
+CREATE INDEX IF NOT EXISTS idx_users_messages_reset_date ON users(messages_reset_date);
+CREATE INDEX IF NOT EXISTS idx_users_premium_expires_at ON users(premium_expires_at);
 
 -- Добавление триггера для обновления updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -64,7 +64,8 @@ INSERT INTO flashcards (word, translation, example, level, category) VALUES
 ('fish', 'рыба', 'Fish is healthy food.', 'beginner', 'food'),
 ('rice', 'рис', 'Rice is popular in Asia.', 'beginner', 'food'),
 ('egg', 'яйцо', 'I eat eggs for breakfast.', 'beginner', 'food'),
-('cheese', 'сыр', 'I like cheese on pizza.', 'beginner', 'food');
+('cheese', 'сыр', 'I like cheese on pizza.', 'beginner', 'food')
+ON CONFLICT (word, level, category) DO NOTHING;
 
 -- INTERMEDIATE LEVEL CARDS (50 карточек)
 INSERT INTO flashcards (word, translation, example, level, category) VALUES
@@ -126,7 +127,8 @@ INSERT INTO flashcards (word, translation, example, level, category) VALUES
 ('symptom', 'симптом', 'What are your symptoms?', 'intermediate', 'health'),
 ('diagnosis', 'диагноз', 'The doctor made a diagnosis.', 'intermediate', 'health'),
 ('therapy', 'терапия', 'Therapy helped me a lot.', 'intermediate', 'health'),
-('medicine', 'лекарство', 'Take your medicine regularly.', 'intermediate', 'health');
+('medicine', 'лекарство', 'Take your medicine regularly.', 'intermediate', 'health')
+ON CONFLICT (word, level, category) DO NOTHING;
 
 -- ADVANCED LEVEL CARDS (50 карточек)
 INSERT INTO flashcards (word, translation, example, level, category) VALUES
@@ -188,7 +190,8 @@ INSERT INTO flashcards (word, translation, example, level, category) VALUES
 ('eloquent', 'красноречивый', 'His speech was eloquent and moving.', 'advanced', 'general'),
 ('persistent', 'настойчивый', 'Success requires persistent effort.', 'advanced', 'general'),
 ('versatile', 'универсальный', 'This tool is very versatile.', 'advanced', 'general'),
-('sophisticated', 'изощренный', 'The solution is quite sophisticated.', 'advanced', 'general');
+('sophisticated', 'изощренный', 'The solution is quite sophisticated.', 'advanced', 'general')
+ON CONFLICT (word, level, category) DO NOTHING;
 
 -- +goose StatementEnd
 
