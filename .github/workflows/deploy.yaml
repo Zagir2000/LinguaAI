@@ -90,7 +90,7 @@ jobs:
           
           # Database Configuration
           DB_HOST=postgres
-          DB_PORT=5433
+          DB_PORT=5432
           DB_USER=lingua_user
           DB_PASSWORD=lingua_password
           DB_NAME=lingua_ai
@@ -141,7 +141,7 @@ jobs:
                 ASR_COMPUTE_TYPE: int8
               restart: unless-stopped
               healthcheck:
-                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/"]
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/docs"]
                 interval: 30s
                 timeout: 10s
                 retries: 3
@@ -149,6 +149,33 @@ jobs:
             app:
               image: ghcr.io/zagir2000/linguaai:latest
               container_name: lingua-ai-app
+              environment:
+                - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+                - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL}
+                - AI_PROVIDER=${AI_PROVIDER}
+                - AI_MODEL=${AI_MODEL}
+                - AI_MAX_TOKENS=${AI_MAX_TOKENS}
+                - AI_TEMPERATURE=${AI_TEMPERATURE}
+                - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+                - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL}
+                - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+                - OPENROUTER_SITE_URL=${OPENROUTER_SITE_URL}
+                - OPENROUTER_SITE_NAME=${OPENROUTER_SITE_NAME}
+                - WHISPER_API_URL=${WHISPER_API_URL}
+                - WHISPER_MODEL=${WHISPER_MODEL}
+                - WHISPER_COMPUTE=${WHISPER_COMPUTE}
+                - DB_HOST=${DB_HOST}
+                - DB_PORT=${DB_PORT}
+                - DB_USER=${DB_USER}
+                - DB_PASSWORD=${DB_PASSWORD}
+                - DB_NAME=${DB_NAME}
+                - DB_SSL_MODE=${DB_SSL_MODE}
+                - APP_ENV=${APP_ENV}
+                - LOG_LEVEL=${LOG_LEVEL}
+                - APP_PORT=${APP_PORT}
+                - YUKASSA_SHOP_ID=${YUKASSA_SHOP_ID}
+                - YUKASSA_SECRET_KEY=${YUKASSA_SECRET_KEY}
+                - YUKASSA_TEST_MODE=${YUKASSA_TEST_MODE}
               ports:
                 - "8080:8080"
               depends_on:
