@@ -29,8 +29,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:latest
-          ghcr.io/${{ github.repository }}:${{ github.sha }}
+          ghcr.io/zagir2000/linguaai:latest
+          ghcr.io/zagir2000/linguaai:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
@@ -143,7 +143,7 @@ jobs:
                 retries: 3
               
             app:
-              image: ghcr.io/${{ github.repository }}:latest
+              image: ghcr.io/zagir2000/linguaai:latest
               container_name: lingua-ai-app
               ports:
                 - "8080:8080"
