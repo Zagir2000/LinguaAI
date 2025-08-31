@@ -140,6 +140,36 @@ func (s *Service) UpdateUser(ctx context.Context, userID int64, req *models.Upda
 	return user, nil
 }
 
+// ActivatePremium активирует премиум подписку для пользователя
+func (s *Service) ActivatePremium(ctx context.Context, userID int64, durationDays int) error {
+	user, err := s.store.User().GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения пользователя: %w", err)
+	}
+
+	// Устанавливаем премиум статус
+	user.IsPremium = true
+
+	// Вычисляем дату истечения
+	expiresAt := time.Now().AddDate(0, 0, durationDays)
+	user.PremiumExpiresAt = &expiresAt
+
+	// Убираем лимит на сообщения
+	user.MaxMessages = 0
+
+	// Обновляем пользователя
+	if err := s.store.User().Update(ctx, user); err != nil {
+		return fmt.Errorf("ошибка обновления пользователя: %w", err)
+	}
+
+	s.logger.Info("премиум подписка активирована",
+		zap.Int64("user_id", userID),
+		zap.Int("duration_days", durationDays),
+		zap.Time("expires_at", expiresAt))
+
+	return nil
+}
+
 // AddXP добавляет опыт пользователю
 func (s *Service) AddXP(ctx context.Context, userID int64, xp int) error {
 	if xp <= 0 {

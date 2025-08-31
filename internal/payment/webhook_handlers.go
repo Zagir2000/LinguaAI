@@ -149,10 +149,15 @@ func (h *WebhookHandler) handlePreCheckoutQuery(query *PreCheckoutQuery) error {
 func (h *WebhookHandler) handleSuccessfulPayment(payment *SuccessfulPayment) error {
 	log.Printf("Получен успешный платеж: %s", payment.ProviderPaymentChargeID)
 
-	// Парсим payload
+	// Парсим payload (формат: "premium_USERID_PLAN_DURATION")
 	parts := strings.Split(payment.InvoicePayload, "_")
 	if len(parts) != 4 {
-		return fmt.Errorf("неверный формат payload: %s", payment.InvoicePayload)
+		return fmt.Errorf("неверный формат payload: %s, ожидается 4 части", payment.InvoicePayload)
+	}
+
+	// Проверяем префикс
+	if parts[0] != "premium" {
+		return fmt.Errorf("неверный префикс payload: %s, ожидается 'premium'", parts[0])
 	}
 
 	userID, err := strconv.ParseInt(parts[1], 10, 64)
@@ -362,13 +367,9 @@ func (h *WebhookHandler) executeInTransaction(ctx context.Context, fn func(store
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
 
-	// Создаем транзакционный store
-	// TODO: Нужно создать правильную структуру транзакционного store
-	// Пока используем основной store, но это не транзакционно
-	txStore := h.store
-
-	// Выполняем функцию с транзакционным store
-	if err := fn(txStore); err != nil {
+	// Выполняем функцию с основным store
+	// TODO: В будущем нужно создать правильный транзакционный store
+	if err := fn(h.store); err != nil {
 		// Если произошла ошибка, откатываем транзакцию
 		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 			log.Printf("ошибка отката транзакции: %v", rollbackErr)

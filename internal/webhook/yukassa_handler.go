@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"lingua-ai/internal/premium"
 
@@ -124,9 +125,25 @@ func (h *YooKassaWebhookHandler) handlePaymentSucceeded(ctx context.Context, web
 	// Получаем payment_id из webhook'а
 	paymentID := webhook.Object.ID
 
-	// Обрабатываем успешный платеж через premium сервис
-	if err := h.premiumService.ProcessPaymentCallback(ctx, paymentID, "succeeded"); err != nil {
-		return fmt.Errorf("ошибка обработки платежа: %w", err)
+	// Получаем платеж из БД
+	payment, err := h.premiumService.GetPaymentByID(ctx, paymentID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения платежа: %w", err)
+	}
+
+	// Обновляем статус платежа
+	payment.Status = "succeeded"
+	now := time.Now()
+	payment.CompletedAt = &now
+
+	// Обновляем платеж в БД
+	if err := h.premiumService.UpdatePayment(ctx, payment); err != nil {
+		return fmt.Errorf("ошибка обновления платежа: %w", err)
+	}
+
+	// Активируем премиум-подписку
+	if err := h.premiumService.ActivatePremium(ctx, payment.UserID, payment.PremiumDurationDays); err != nil {
+		return fmt.Errorf("ошибка активации премиума: %w", err)
 	}
 
 	h.logger.Info("платеж успешно обработан",
@@ -140,9 +157,18 @@ func (h *YooKassaWebhookHandler) handlePaymentSucceeded(ctx context.Context, web
 func (h *YooKassaWebhookHandler) handlePaymentCanceled(ctx context.Context, webhook PaymentWebhook) error {
 	paymentID := webhook.Object.ID
 
-	// Обрабатываем отмененный платеж
-	if err := h.premiumService.ProcessPaymentCallback(ctx, paymentID, "canceled"); err != nil {
-		return fmt.Errorf("ошибка обработки отмененного платежа: %w", err)
+	// Получаем платеж из БД
+	payment, err := h.premiumService.GetPaymentByID(ctx, paymentID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения платежа: %w", err)
+	}
+
+	// Обновляем статус платежа
+	payment.Status = "canceled"
+
+	// Обновляем платеж в БД
+	if err := h.premiumService.UpdatePayment(ctx, payment); err != nil {
+		return fmt.Errorf("ошибка обновления платежа: %w", err)
 	}
 
 	h.logger.Info("платеж отменен",

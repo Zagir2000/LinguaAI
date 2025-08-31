@@ -3,6 +3,7 @@ package payment
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -30,6 +31,10 @@ func NewTelegramPaymentService(botToken, providerToken string) *TelegramPaymentS
 // SendInvoice отправляет счет на оплату
 func (s *TelegramPaymentService) SendInvoice(chatID int64, invoice *Invoice) error {
 	endpoint := s.baseURL + "/sendInvoice"
+
+	// Логируем создание invoice для отладки
+	fmt.Printf("🔧 Создаем invoice для chat_id: %d, payload: %s, provider_token: %s\n",
+		chatID, invoice.Payload, s.providerToken)
 
 	// Подготавливаем данные для отправки
 	data := url.Values{}
@@ -106,7 +111,9 @@ func (s *TelegramPaymentService) SendInvoice(chatID int64, invoice *Invoice) err
 
 	// Проверяем ответ
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("неуспешный статус: %d", resp.StatusCode)
+		// Читаем тело ответа для отладки
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("неуспешный статус: %d, ответ: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -174,7 +181,11 @@ func (s *TelegramPaymentService) AnswerPreCheckoutQuery(preCheckoutQueryID strin
 func (s *TelegramPaymentService) CreatePremiumInvoice(userID int64, plan string, durationDays int, amountKopecks int) *Invoice {
 	payload := fmt.Sprintf("premium_%d_%s_%d", userID, plan, durationDays)
 
-	return &Invoice{
+	// Логируем создание invoice
+	fmt.Printf("💳 Создаем invoice: user_id=%d, plan=%s, duration=%d дней, amount=%d копеек\n",
+		userID, plan, durationDays, amountKopecks)
+
+	invoice := &Invoice{
 		Title:         "🌟 Премиум подписка Lingua AI",
 		Description:   fmt.Sprintf("Премиум подписка на %d дней", durationDays),
 		Payload:       payload,
@@ -191,6 +202,9 @@ func (s *TelegramPaymentService) CreatePremiumInvoice(userID int64, plan string,
 		NeedEmail:      true,
 		IsFlexible:     false,
 	}
+
+	fmt.Printf("✅ Invoice создан: payload=%s, provider_token=%s\n", payload, s.providerToken)
+	return invoice
 }
 
 // CreateShippingOptions создает варианты доставки

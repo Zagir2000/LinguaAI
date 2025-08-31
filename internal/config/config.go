@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -198,6 +199,17 @@ func validateConfig(config *Config) error {
 	}
 	if config.YooKassa.ProviderToken == "" {
 		return fmt.Errorf("YUKASSA_PROVIDER_TOKEN не установлен")
+	}
+
+	// Проверяем формат Provider Token (должен быть: SHOP_ID:MODE:PROVIDER_ID)
+	parts := strings.Split(config.YooKassa.ProviderToken, ":")
+	if len(parts) != 3 {
+		return fmt.Errorf("YUKASSA_PROVIDER_TOKEN должен быть в формате SHOP_ID:MODE:PROVIDER_ID, получен: %s", config.YooKassa.ProviderToken)
+	}
+
+	// Проверяем, что Shop ID совпадает с первой частью токена
+	if parts[0] != config.YooKassa.ShopID {
+		return fmt.Errorf("YUKASSA_SHOP_ID (%s) не совпадает с Shop ID в Provider Token (%s)", config.YooKassa.ShopID, parts[0])
 	}
 	return nil
 }

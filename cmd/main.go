@@ -86,13 +86,15 @@ func main() {
 	messageService := message.NewService(store, logger)
 	flashcardService := flashcards.NewService(store.Flashcard(), logger)
 
-	// Инициализация payment и premium сервисов
-	yukassaClient := payment.NewYukassaClient(cfg.YooKassa.ShopID, cfg.YooKassa.SecretKey, cfg.YooKassa.TestMode, logger)
-
 	// Инициализация Telegram Payments сервиса
 	telegramPaymentService := payment.NewTelegramPaymentService(cfg.Telegram.BotToken, cfg.YooKassa.ProviderToken)
 
-	premiumService := premium.NewService(userService, store.Payment(), yukassaClient, logger)
+	// Логируем инициализацию Telegram Payments
+	logger.Info("Telegram Payments сервис инициализирован",
+		zap.String("bot_token", cfg.Telegram.BotToken[:10]+"..."),
+		zap.String("provider_token", cfg.YooKassa.ProviderToken))
+
+	premiumService := premium.NewService(userService, store.Payment(), nil, logger)
 
 	// Инициализация referral сервиса
 	referralService := referral.NewService(store.Referral(), store.User(), logger)
@@ -110,6 +112,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("ошибка инициализации Telegram бота", zap.Error(err))
 	}
+
+	// Логируем конфигурацию YooKassa для отладки
+	logger.Info("конфигурация YooKassa",
+		zap.String("shop_id", cfg.YooKassa.ShopID),
+		zap.String("provider_token", cfg.YooKassa.ProviderToken),
+		zap.Bool("test_mode", cfg.YooKassa.TestMode))
 
 	botInfo, err := botAPI.GetMe()
 	if err != nil {

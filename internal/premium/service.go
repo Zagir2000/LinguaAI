@@ -15,7 +15,7 @@ type Service struct {
 	userRepo    UserRepository
 	paymentRepo PaymentRepository
 	logger      *zap.Logger
-	yukassa     YukassaClient
+	// yukassa     YukassaClient // Убрано - используется только Telegram Payments
 }
 
 // UserRepository интерфейс для работы с пользователями
@@ -32,19 +32,19 @@ type PaymentRepository interface {
 	Update(ctx context.Context, payment *models.Payment) error
 }
 
-// YukassaClient интерфейс для работы с ЮKassa
-type YukassaClient interface {
-	CreatePayment(ctx context.Context, amount float64, currency string, description string) (string, string, error)
-	CheckPaymentStatus(ctx context.Context, paymentID string) (string, error)
-}
+// YukassaClient интерфейс больше не используется - платежи обрабатываются через Telegram Payments
+// type YukassaClient interface {
+// 	CreatePayment(ctx context.Context, amount float64, currency string, description string) (string, string, error)
+// 	CheckPaymentStatus(ctx context.Context, paymentID string) (string, error)
+// }
 
 // NewService создает новый сервис премиум-подписки
-func NewService(userRepo UserRepository, paymentRepo PaymentRepository, yukassa YukassaClient, logger *zap.Logger) *Service {
+func NewService(userRepo UserRepository, paymentRepo PaymentRepository, yukassa interface{}, logger *zap.Logger) *Service {
 	return &Service{
 		userRepo:    userRepo,
 		paymentRepo: paymentRepo,
-		yukassa:     yukassa,
-		logger:      logger,
+		// yukassa:     yukassa, // Убрано - используется только Telegram Payments
+		logger: logger,
 	}
 }
 
@@ -99,82 +99,29 @@ func (s *Service) GetPremiumPlans() []models.PremiumPlan {
 	}
 }
 
-// CreatePayment создает новый платеж для премиум-подписки
-func (s *Service) CreatePayment(ctx context.Context, userID int64, planID int) (*models.Payment, string, string, error) {
-	// Получаем план
-	plans := s.GetPremiumPlans()
-	var selectedPlan models.PremiumPlan
-	for _, plan := range plans {
-		if plan.ID == planID {
-			selectedPlan = plan
-			break
-		}
-	}
+// CreatePayment больше не используется - платежи создаются через Telegram Payments API
+// func (s *Service) CreatePayment(ctx context.Context, userID int64, planID int) (*models.Payment, string, string, error) {
+// 	// Метод удален - используется только Telegram Payments
+// }
 
-	if selectedPlan.ID == 0 {
-		return nil, "", "", fmt.Errorf("план с ID %d не найден", planID)
-	}
+// ProcessPaymentCallback больше не используется - callback'и обрабатываются через Telegram Payments webhook
+// func (s *Service) ProcessPaymentCallback(ctx context.Context, paymentID string, status string) error {
+// 	// Метод удален - используется только Telegram Payments webhook
+// }
 
-	// Создаем платеж в ЮKassa
-	paymentID, confirmationURL, err := s.yukassa.CreatePayment(ctx, selectedPlan.Price, selectedPlan.Currency, selectedPlan.Description)
-	if err != nil {
-		s.logger.Error("ошибка создания платежа в ЮKassa", zap.Error(err), zap.Int64("user_id", userID))
-		return nil, "", "", fmt.Errorf("ошибка создания платежа: %w", err)
-	}
-
-	// Создаем запись о платеже в БД
-	payment := &models.Payment{
-		UserID:              userID,
-		Amount:              selectedPlan.Price,
-		Currency:            selectedPlan.Currency,
-		PaymentID:           paymentID,
-		Status:              "pending",
-		PremiumDurationDays: selectedPlan.DurationDays,
-		CreatedAt:           time.Now(),
-		Metadata: map[string]any{
-			"plan_id":   planID,
-			"plan_name": selectedPlan.Name,
-		},
-	}
-
-	if err := s.paymentRepo.Create(ctx, payment); err != nil {
-		s.logger.Error("ошибка сохранения платежа в БД", zap.Error(err), zap.Int64("user_id", userID))
-		return nil, "", "", fmt.Errorf("ошибка сохранения платежа: %w", err)
-	}
-
-	return payment, paymentID, confirmationURL, nil
+// ActivatePremium активирует премиум-подписку для пользователя (публичный метод)
+func (s *Service) ActivatePremium(ctx context.Context, userID int64, durationDays int) error {
+	return s.activatePremium(ctx, userID, durationDays)
 }
 
-// ProcessPaymentCallback обрабатывает callback от ЮKassa
-func (s *Service) ProcessPaymentCallback(ctx context.Context, paymentID string, status string) error {
-	// Получаем платеж из БД
-	payment, err := s.paymentRepo.GetByPaymentID(ctx, paymentID)
-	if err != nil {
-		s.logger.Error("ошибка получения платежа", zap.Error(err), zap.String("payment_id", paymentID))
-		return fmt.Errorf("ошибка получения платежа: %w", err)
-	}
+// GetPaymentByID получает платеж по ID
+func (s *Service) GetPaymentByID(ctx context.Context, paymentID string) (*models.Payment, error) {
+	return s.paymentRepo.GetByPaymentID(ctx, paymentID)
+}
 
-	// Обновляем статус платежа
-	payment.Status = status
-	if status == "completed" {
-		now := time.Now()
-		payment.CompletedAt = &now
-
-		// Активируем премиум-подписку
-		if err := s.activatePremium(ctx, payment.UserID, payment.PremiumDurationDays); err != nil {
-			s.logger.Error("ошибка активации премиума", zap.Error(err), zap.Int64("user_id", payment.UserID))
-			return fmt.Errorf("ошибка активации премиума: %w", err)
-		}
-	}
-
-	// Обновляем платеж в БД
-	if err := s.paymentRepo.Update(ctx, payment); err != nil {
-		s.logger.Error("ошибка обновления платежа", zap.Error(err), zap.String("payment_id", paymentID))
-		return fmt.Errorf("ошибка обновления платежа: %w", err)
-	}
-
-	s.logger.Info("платеж обработан", zap.String("payment_id", paymentID), zap.String("status", status))
-	return nil
+// UpdatePayment обновляет платеж
+func (s *Service) UpdatePayment(ctx context.Context, payment *models.Payment) error {
+	return s.paymentRepo.Update(ctx, payment)
 }
 
 // activatePremium активирует премиум-подписку для пользователя
