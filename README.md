@@ -7,7 +7,6 @@
 ### 🎯 **Система уровней и тестирования**
 - **Автоматическое определение уровня** пользователя
 - **Адаптивные тесты** для оценки знаний
-- **5 уровней сложности:** Beginner, Basic, Intermediate, Advanced, Expert
 - **Динамическое изменение уровня** на основе результатов
 
 ### 🎭 **Диалоги-сценарии**
@@ -29,11 +28,6 @@
 - **Отслеживание прогресса** изучения слов
 - **Адаптивная сложность** карточек
 
-### 🤖 **AI-помощник**
-- **GigaChat интеграция** для генерации контента
-- **Персонализированные ответы** на русском языке
-- **Контекстное обучение** с учетом уровня пользователя
-- **Генерация упражнений** и объяснений
 
 ### 📊 **Статистика и аналитика**
 - **Детальная статистика** обучения
@@ -95,31 +89,48 @@ docker-compose logs -f app
 
 ### **Основные переменные окружения:**
 ```bash
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=your_bot_token
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 TELEGRAM_WEBHOOK_URL=https://your-domain.com/webhook
 
-# AI Provider
-AI_PROVIDER=gigachat
-AI_MODEL=GigaChat
+# AI Provider Configuration
+AI_PROVIDER=deepseek  # deepseek или openrouter
+AI_MODEL=deepseek-chat
 AI_MAX_TOKENS=1000
 AI_TEMPERATURE=0.7
 
-# GigaChat Configuration
-GIGACHAT_AUTH_KEY=your_auth_key
-GIGACHAT_AUTH_URL=https://ngw.devices.sberbank.ru:9443/api/v2/oauth
-GIGACHAT_CLIENT_ID=your_client_id
-GIGACHAT_SCOPE=GIGACHAT_API_PERS
+# DeepSeek Configuration (основной провайдер)
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 
-# Database
+# Whisper Configuration
+WHISPER_API_URL=http://whisper:9000
+WHISPER_MODEL=small  # tiny, base, small, medium, large
+WHISPER_COMPUTE=int8  # int8 (быстро) или float32 (качество)
+
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=lingua_user
 DB_PASSWORD=lingua_password
 DB_NAME=lingua_ai
+DB_SSL_MODE=disable
 
-# Whisper
-WHISPER_API_URL=http://localhost:8081
+# Application Configuration
+APP_ENV=development
+LOG_LEVEL=debug
+APP_PORT=8080
+
+# WebApp Configuration
+WEBAPP_URL=https://your-domain.com
+
+# YooKassa Configuration
+YUKASSA_SHOP_ID=test_shop_id
+YUKASSA_SECRET_KEY=test_secret_key
+YUKASSA_TEST_MODE=true
+
+# Migration Configuration
+MIGRATION_PATH=file://scripts/migrations
 ```
 
 ## 📁 **Структура проекта**

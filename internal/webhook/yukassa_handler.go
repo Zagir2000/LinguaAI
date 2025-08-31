@@ -48,8 +48,15 @@ type PaymentWebhook struct {
 
 // HandleWebhook обрабатывает входящий webhook от ЮKassa
 func (h *YooKassaWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("получен webhook запрос",
+		zap.String("method", r.Method),
+		zap.String("url", r.URL.String()),
+		zap.String("user_agent", r.UserAgent()),
+		zap.String("content_type", r.Header.Get("Content-Type")))
+
 	// Проверяем метод запроса
 	if r.Method != http.MethodPost {
+		h.logger.Warn("неверный метод webhook запроса", zap.String("method", r.Method))
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -62,6 +69,11 @@ func (h *YooKassaWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 	defer r.Body.Close()
+
+	// Логируем тело webhook'а для отладки
+	h.logger.Info("тело webhook'а",
+		zap.String("body", string(body)),
+		zap.Int("body_length", len(body)))
 
 	// Проверяем подпись webhook'а (если настроена)
 	if !h.verifySignature(r.Header.Get("X-YooKassa-Signature"), body) {
