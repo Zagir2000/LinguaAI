@@ -324,6 +324,12 @@ func (h *Handler) handleCallbackQuery(ctx context.Context, callback *tgbotapi.Ca
 			h.logger.Error("ошибка парсинга ID плана", zap.Error(err))
 			return err
 		}
+
+		h.logger.Info("🔍 Вызываем handlePremiumPlanSelection",
+			zap.String("data", data),
+			zap.Int("plan_id", planID),
+			zap.Int64("user_id", user.ID))
+
 		return h.handlePremiumPlanSelection(ctx, callback.Message.Chat.ID, user.ID, planID)
 
 	case data == "premium_stats":
@@ -382,6 +388,11 @@ func (h *Handler) handleCallbackQuery(ctx context.Context, callback *tgbotapi.Ca
 
 // handlePremiumPlanSelection обрабатывает выбор плана премиума
 func (h *Handler) handlePremiumPlanSelection(ctx context.Context, chatID int64, userID int64, planID int) error {
+	h.logger.Info("🚀 handlePremiumPlanSelection вызван",
+		zap.Int64("chat_id", chatID),
+		zap.Int64("user_id", userID),
+		zap.Int("plan_id", planID))
+
 	// Получаем план
 	plans := h.premiumService.GetPremiumPlans()
 	var selectedPlan models.PremiumPlan
@@ -405,6 +416,11 @@ func (h *Handler) handlePremiumPlanSelection(ctx context.Context, chatID int64, 
 	)
 
 	// Отправляем счет пользователю
+	h.logger.Info("💳 Отправляем invoice через Telegram Payments",
+		zap.Int64("chat_id", chatID),
+		zap.String("payload", invoice.Payload),
+		zap.String("provider_token", invoice.ProviderToken))
+
 	err := h.telegramPaymentService.SendInvoice(chatID, invoice)
 	if err != nil {
 		h.logger.Error("ошибка отправки счета", zap.Error(err))
