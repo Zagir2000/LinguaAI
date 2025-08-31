@@ -154,6 +154,9 @@ func TestValidateConfig(t *testing.T) {
 			Password: "test_password",
 			Name:     "test_db",
 		},
+		YooKassa: YooKassaConfig{
+			ProviderToken: "test_provider_token",
+		},
 	}
 	err = validateConfig(cfg)
 	assert.NoError(t, err)
