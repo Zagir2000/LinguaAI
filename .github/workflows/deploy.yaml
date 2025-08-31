@@ -105,6 +105,7 @@ jobs:
           YUKASSA_SHOP_ID=${{ secrets.YUKASSA_SHOP_ID }}
           YUKASSA_SECRET_KEY=${{ secrets.YUKASSA_SECRET_KEY }}
           YUKASSA_TEST_MODE=${{ secrets.YUKASSA_TEST_MODE || 'false' }}
+          YUKASSA_PROVIDER_TOKEN=${{ secrets.YUKASSA_PROVIDER_TOKEN }}
           EOF
           
           # Создаем docker-compose.yml с готовым образом
@@ -176,6 +177,7 @@ jobs:
                 - YUKASSA_SHOP_ID=${YUKASSA_SHOP_ID}
                 - YUKASSA_SECRET_KEY=${YUKASSA_SECRET_KEY}
                 - YUKASSA_TEST_MODE=${YUKASSA_TEST_MODE}
+                - YUKASSA_PROVIDER_TOKEN=${YUKASSA_PROVIDER_TOKEN}
               ports:
                 - "8080:8080"
               depends_on:

@@ -69,9 +69,10 @@ type AppConfig struct {
 
 // YooKassaConfig содержит настройки ЮKassa
 type YooKassaConfig struct {
-	ShopID    string
-	SecretKey string
-	TestMode  bool
+	ShopID        string
+	SecretKey     string
+	TestMode      bool
+	ProviderToken string
 }
 
 // Load загружает конфигурацию из переменных окружения и .env
@@ -111,6 +112,7 @@ func Load() (*Config, error) {
 	cfg.YooKassa.ShopID = getEnvDefault("YUKASSA_SHOP_ID", "test_shop_id")
 	cfg.YooKassa.SecretKey = getEnvDefault("YUKASSA_SECRET_KEY", "test_secret_key")
 	cfg.YooKassa.TestMode = getEnvBoolDefault("YUKASSA_TEST_MODE", true)
+	cfg.YooKassa.ProviderToken = os.Getenv("YUKASSA_PROVIDER_TOKEN")
 
 	// App
 	cfg.App.Env = getEnvDefault("APP_ENV", "development")
@@ -193,6 +195,9 @@ func validateConfig(config *Config) error {
 	}
 	if config.Database.Name == "" {
 		return fmt.Errorf("DB_NAME не установлен")
+	}
+	if config.YooKassa.ProviderToken == "" {
+		return fmt.Errorf("YUKASSA_PROVIDER_TOKEN не установлен")
 	}
 	return nil
 }

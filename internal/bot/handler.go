@@ -17,7 +17,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"lingua-ai/internal/payment"
 	"lingua-ai/internal/premium"
+	"lingua-ai/internal/store"
 
 	"lingua-ai/internal/ai"
 	"lingua-ai/internal/flashcards"
@@ -91,22 +93,24 @@ func (rl *RateLimiter) IsAllowed(userID int64) bool {
 
 // Handler представляет обработчик сообщений Telegram
 type Handler struct {
-	bot              *tgbotapi.BotAPI
-	userService      *user.Service
-	messageService   *message.Service
-	aiClient         ai.AIClient
-	whisperClient    *whisper.Client
-	messages         *Messages
-	logger           *zap.Logger
-	userMetrics      *metrics.Metrics
-	aiMetrics        *metrics.Metrics
-	activeLevelTests map[int64]*models.LevelTest // Хранилище активных тестов
-	prompts          *SystemPrompts
-	dialogContexts   map[int64]*DialogContext // контекст диалога для каждого пользователя
-	premiumService   *premium.Service         // сервис премиум-подписки
-	referralService  *referral.Service        // сервис реферальной системы
-	rateLimiter      *RateLimiter             // rate limiter для защиты от спама
-	flashcardHandler *FlashcardHandler        // обработчик словарных карточек
+	bot                    *tgbotapi.BotAPI
+	userService            *user.Service
+	messageService         *message.Service
+	aiClient               ai.AIClient
+	whisperClient          *whisper.Client
+	messages               *Messages
+	logger                 *zap.Logger
+	userMetrics            *metrics.Metrics
+	aiMetrics              *metrics.Metrics
+	activeLevelTests       map[int64]*models.LevelTest // Хранилище активных тестов
+	prompts                *SystemPrompts
+	dialogContexts         map[int64]*DialogContext        // контекст диалога для каждого пользователя
+	premiumService         *premium.Service                // сервис премиум-подписки
+	referralService        *referral.Service               // сервис реферальной системы
+	rateLimiter            *RateLimiter                    // rate limiter для защиты от спама
+	flashcardHandler       *FlashcardHandler               // обработчик словарных карточек
+	telegramPaymentService *payment.TelegramPaymentService // сервис Telegram Payments
+	store                  store.Store                     // хранилище для доступа к payment repo
 }
 
 // NewHandler создает новый обработчик
@@ -122,23 +126,27 @@ func NewHandler(
 	premiumService *premium.Service,
 	referralService *referral.Service,
 	flashcardService *flashcards.Service,
+	telegramPaymentService *payment.TelegramPaymentService,
+	store store.Store,
 ) *Handler {
 	handler := &Handler{
-		bot:              bot,
-		userService:      userService,
-		messageService:   messageService,
-		aiClient:         aiClient,
-		whisperClient:    whisperClient,
-		messages:         NewMessages(),
-		logger:           logger,
-		userMetrics:      userMetrics,
-		aiMetrics:        aiMetrics,
-		activeLevelTests: make(map[int64]*models.LevelTest),
-		prompts:          NewSystemPrompts(),
-		dialogContexts:   make(map[int64]*DialogContext),
-		premiumService:   premiumService,
-		referralService:  referralService,
-		rateLimiter:      NewRateLimiter(),
+		bot:                    bot,
+		userService:            userService,
+		messageService:         messageService,
+		aiClient:               aiClient,
+		whisperClient:          whisperClient,
+		messages:               NewMessages(),
+		logger:                 logger,
+		userMetrics:            userMetrics,
+		aiMetrics:              aiMetrics,
+		activeLevelTests:       make(map[int64]*models.LevelTest),
+		prompts:                NewSystemPrompts(),
+		dialogContexts:         make(map[int64]*DialogContext),
+		premiumService:         premiumService,
+		referralService:        referralService,
+		rateLimiter:            NewRateLimiter(),
+		telegramPaymentService: telegramPaymentService,
+		store:                  store,
 	}
 
 	// Инициализируем обработчик карточек
@@ -383,61 +391,78 @@ func (h *Handler) handlePremiumPlanSelection(ctx context.Context, chatID int64, 
 			break
 		}
 	}
-	var messageText string
 
 	if selectedPlan.ID == 0 {
 		return h.sendMessage(chatID, "План не найден")
 	}
 
-	// Создаем платеж
-	_, paymentID, returnUrl, err := h.premiumService.CreatePayment(ctx, userID, planID)
+	// Создаем счет через Telegram Payments
+	invoice := h.telegramPaymentService.CreatePremiumInvoice(
+		userID,
+		getPlanKey(planID),
+		selectedPlan.DurationDays,
+		int(selectedPlan.Price*100), // Конвертируем в копейки
+	)
+
+	// Отправляем счет пользователю
+	err := h.telegramPaymentService.SendInvoice(chatID, invoice)
 	if err != nil {
-		h.logger.Error("ошибка создания платежа", zap.Error(err))
-		return h.sendMessage(chatID, "Ошибка создания платежа. Попробуйте позже.")
+		h.logger.Error("ошибка отправки счета", zap.Error(err))
+		return h.sendMessage(chatID, "Ошибка отправки счета. Попробуйте позже.")
 	}
 
-	if returnUrl != "" {
-		// Если есть URL для оплаты, показываем его как кликабельную ссылку
-		messageText = fmt.Sprintf(` <b>Создан платеж</b>
+	// Отправляем подтверждение
+	messageText := fmt.Sprintf(`💳 <b>Счет отправлен!</b>
 
- План: %s
- Сумма: %.0f %s
-⏱ Длительность: %d дней
+📋 <b>План:</b> %s
+💰 <b>Сумма:</b> %.0f %s
+⏱ <b>Длительность:</b> %d дней
 
- <b>Ссылка для оплаты:</b>
-<a href="%s">Оплатить %s</a>
+✅ <b>Счет отправлен в чат</b>
 
 ⚠️ <i>После оплаты премиум-подписка будет активирована автоматически</i>`,
-			selectedPlan.Name,
-			selectedPlan.Price,
-			selectedPlan.Currency,
-			selectedPlan.DurationDays,
-			returnUrl,
-			selectedPlan.Currency)
-	} else {
-		// Fallback - показываем только ID
-		messageText = fmt.Sprintf(` <b>Создан платеж</b>
-
- План: %s
- Сумма: %.0f %s
-⏱ Длительность: %d дней
-
-🔗 <b>ID платежа:</b>
-<code>%s</code>
-
-⚠️ <i>После оплаты премиум-подписка будет активирована автоматически</i>`,
-			selectedPlan.Name,
-			selectedPlan.Price,
-			selectedPlan.Currency,
-			selectedPlan.DurationDays,
-			paymentID)
-	}
+		selectedPlan.Name,
+		selectedPlan.Price,
+		selectedPlan.Currency,
+		selectedPlan.DurationDays)
 
 	msg := tgbotapi.NewMessage(chatID, messageText)
 	msg.ParseMode = "HTML"
 
 	_, err = h.bot.Send(msg)
 	return err
+}
+
+// getPlanKey возвращает ключ плана для payload
+func getPlanKey(planID int) string {
+	switch planID {
+	case 1:
+		return "month"
+	case 2:
+		return "quarter"
+	case 3:
+		return "year"
+	default:
+		return "custom"
+	}
+}
+
+// HandleTelegramWebhook обрабатывает webhook'и от Telegram для платежей
+func (h *Handler) HandleTelegramWebhook(ctx context.Context, webhookData []byte) error {
+	// Создаем адаптеры для существующих сервисов
+	userServiceAdapter := payment.NewUserServiceAdapter(h.userService)
+	paymentServiceAdapter := payment.NewPaymentServiceAdapter(h.premiumService, h.store.Payment())
+
+	// Создаем webhook handler для Telegram Payments
+	webhookHandler := payment.NewWebhookHandler(
+		h.telegramPaymentService,
+		userServiceAdapter,
+		paymentServiceAdapter,
+		h.store,
+	)
+
+	// Обрабатываем webhook
+	return webhookHandler.HandleWebhook(webhookData)
 }
 
 // handleButtonPress обрабатывает нажатия кнопок

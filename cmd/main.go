@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -88,6 +89,9 @@ func main() {
 	// Инициализация payment и premium сервисов
 	yukassaClient := payment.NewYukassaClient(cfg.YooKassa.ShopID, cfg.YooKassa.SecretKey, cfg.YooKassa.TestMode, logger)
 
+	// Инициализация Telegram Payments сервиса
+	telegramPaymentService := payment.NewTelegramPaymentService(cfg.Telegram.BotToken, cfg.YooKassa.ProviderToken)
+
 	premiumService := premium.NewService(userService, store.Payment(), yukassaClient, logger)
 
 	// Инициализация referral сервиса
@@ -117,7 +121,7 @@ func main() {
 		zap.Int64("id", botInfo.ID))
 
 	// Инициализация обработчика
-	handler := bot.NewHandler(botAPI, userService, messageService, aiClient, whisperClient, logger, userMetrics, aiMetrics, premiumService, referralService, flashcardService)
+	handler := bot.NewHandler(botAPI, userService, messageService, aiClient, whisperClient, logger, userMetrics, aiMetrics, premiumService, referralService, flashcardService, telegramPaymentService, store)
 
 	// Инициализация планировщика задач
 	taskScheduler := scheduler.NewScheduler(logger)
@@ -135,7 +139,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Запуск HTTP сервера для метрик
-	go startMetricsServer(ctx, cfg.App.Port, metricsHandler, premiumService, cfg.YooKassa.SecretKey, logger)
+	go startMetricsServer(ctx, cfg.App.Port, metricsHandler, premiumService, cfg.YooKassa.SecretKey, logger, handler)
 
 	// Запуск планировщика задач (каждые 4 часа)
 	go taskScheduler.Start(ctx, 4*time.Hour)
@@ -216,7 +220,7 @@ func handleUpdates(ctx context.Context, bot *tgbotapi.BotAPI, handler *bot.Handl
 }
 
 // startMetricsServer запускает HTTP сервер для метрик и webhook'ов
-func startMetricsServer(ctx context.Context, port int, handler *metrics.Handler, premiumService *premium.Service, yukassaSecretKey string, logger *zap.Logger) {
+func startMetricsServer(ctx context.Context, port int, handler *metrics.Handler, premiumService *premium.Service, yukassaSecretKey string, logger *zap.Logger, telegramHandler *bot.Handler) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", handler.MetricsHandler())
 	mux.HandleFunc("/health", handler.HealthHandler)
@@ -224,6 +228,32 @@ func startMetricsServer(ctx context.Context, port int, handler *metrics.Handler,
 	// Webhook endpoint для ЮKassa
 	webhookHandler := webhook.NewYooKassaWebhookHandler(premiumService, yukassaSecretKey, logger)
 	mux.HandleFunc("/webhook/yukassa", webhookHandler.HandleWebhook)
+
+	// Webhook endpoint для Telegram Payments
+	mux.HandleFunc("/webhook/telegram", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Читаем тело запроса
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			logger.Error("ошибка чтения webhook", zap.Error(err))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		// Обрабатываем webhook через Telegram Payments handler
+		if err := telegramHandler.HandleTelegramWebhook(r.Context(), body); err != nil {
+			logger.Error("ошибка обработки Telegram webhook", zap.Error(err))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
