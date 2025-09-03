@@ -98,6 +98,9 @@ services:
       YUKASSA_SHOP_ID: ${YUKASSA_SHOP_ID:-test_shop_id}
       YUKASSA_SECRET_KEY: ${YUKASSA_SECRET_KEY:-test_secret_key}
       YUKASSA_TEST_MODE: ${YUKASSA_TEST_MODE:-true}
+      
+      # TTS Configuration
+      TTS_ENABLED: ${TTS_ENABLED:-false}
 
     volumes:
       - ./logs:/app/logs
