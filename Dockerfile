@@ -23,14 +23,14 @@ COPY . .
 # Собираем приложение
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
-# Финальный образ
-FROM ubuntu:20.04
+# Базовый образ с Python и системными пакетами (кэшируется отдельно)
+FROM ubuntu:20.04 AS base
 
 # Build arguments для метаданных
 ARG BUILD_DATE
 ARG GIT_COMMIT
 
-# Устанавливаем необходимые пакеты включая Mozilla TTS
+# Устанавливаем системные пакеты (кэшируется отдельно)
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -40,9 +40,15 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+# Образ с Mozilla TTS (кэшируется отдельно)
+FROM base AS tts-base
+
 # Устанавливаем Mozilla TTS с оптимизацией
 RUN pip3 install --no-cache-dir TTS && \
     rm -rf /tmp/* /var/tmp/* /root/.cache/pip
+
+# Финальный образ
+FROM tts-base AS final
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \
