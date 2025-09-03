@@ -186,7 +186,7 @@ func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 		user.CurrentState = "idle" // Статус по умолчанию
 	}
 	if user.MaxMessages == 0 {
-		user.MaxMessages = 15 // Новый лимит по умолчанию для бесплатных пользователей
+		user.MaxMessages = 7 // Новый лимит по умолчанию для бесплатных пользователей
 	}
 
 	err := r.db.QueryRow(ctx, query,
