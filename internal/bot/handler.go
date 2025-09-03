@@ -17,7 +17,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"lingua-ai/internal/payment"
 	"lingua-ai/internal/premium"
 	"lingua-ai/internal/store"
 
@@ -93,24 +92,23 @@ func (rl *RateLimiter) IsAllowed(userID int64) bool {
 
 // Handler представляет обработчик сообщений Telegram
 type Handler struct {
-	bot                    *tgbotapi.BotAPI
-	userService            *user.Service
-	messageService         *message.Service
-	aiClient               ai.AIClient
-	whisperClient          *whisper.Client
-	messages               *Messages
-	logger                 *zap.Logger
-	userMetrics            *metrics.Metrics
-	aiMetrics              *metrics.Metrics
-	activeLevelTests       map[int64]*models.LevelTest // Хранилище активных тестов
-	prompts                *SystemPrompts
-	dialogContexts         map[int64]*DialogContext        // контекст диалога для каждого пользователя
-	premiumService         *premium.Service                // сервис премиум-подписки
-	referralService        *referral.Service               // сервис реферальной системы
-	rateLimiter            *RateLimiter                    // rate limiter для защиты от спама
-	flashcardHandler       *FlashcardHandler               // обработчик словарных карточек
-	telegramPaymentService *payment.TelegramPaymentService // сервис Telegram Payments
-	store                  store.Store                     // хранилище для доступа к payment repo
+	bot              *tgbotapi.BotAPI
+	userService      *user.Service
+	messageService   *message.Service
+	aiClient         ai.AIClient
+	whisperClient    *whisper.Client
+	messages         *Messages
+	logger           *zap.Logger
+	userMetrics      *metrics.Metrics
+	aiMetrics        *metrics.Metrics
+	activeLevelTests map[int64]*models.LevelTest // Хранилище активных тестов
+	prompts          *SystemPrompts
+	dialogContexts   map[int64]*DialogContext // контекст диалога для каждого пользователя
+	premiumService   *premium.Service         // сервис премиум-подписки
+	referralService  *referral.Service        // сервис реферальной системы
+	rateLimiter      *RateLimiter             // rate limiter для защиты от спама
+	flashcardHandler *FlashcardHandler        // обработчик словарных карточек
+	store            store.Store              // хранилище для доступа к payment repo
 }
 
 // NewHandler создает новый обработчик
@@ -126,27 +124,25 @@ func NewHandler(
 	premiumService *premium.Service,
 	referralService *referral.Service,
 	flashcardService *flashcards.Service,
-	telegramPaymentService *payment.TelegramPaymentService,
 	store store.Store,
 ) *Handler {
 	handler := &Handler{
-		bot:                    bot,
-		userService:            userService,
-		messageService:         messageService,
-		aiClient:               aiClient,
-		whisperClient:          whisperClient,
-		messages:               NewMessages(),
-		logger:                 logger,
-		userMetrics:            userMetrics,
-		aiMetrics:              aiMetrics,
-		activeLevelTests:       make(map[int64]*models.LevelTest),
-		prompts:                NewSystemPrompts(),
-		dialogContexts:         make(map[int64]*DialogContext),
-		premiumService:         premiumService,
-		referralService:        referralService,
-		rateLimiter:            NewRateLimiter(),
-		telegramPaymentService: telegramPaymentService,
-		store:                  store,
+		bot:              bot,
+		userService:      userService,
+		messageService:   messageService,
+		aiClient:         aiClient,
+		whisperClient:    whisperClient,
+		messages:         NewMessages(),
+		logger:           logger,
+		userMetrics:      userMetrics,
+		aiMetrics:        aiMetrics,
+		activeLevelTests: make(map[int64]*models.LevelTest),
+		prompts:          NewSystemPrompts(),
+		dialogContexts:   make(map[int64]*DialogContext),
+		premiumService:   premiumService,
+		referralService:  referralService,
+		rateLimiter:      NewRateLimiter(),
+		store:            store,
 	}
 
 	// Инициализируем обработчик карточек
@@ -407,78 +403,43 @@ func (h *Handler) handlePremiumPlanSelection(ctx context.Context, chatID int64, 
 		return h.sendMessage(chatID, "План не найден")
 	}
 
-	// Создаем счет через Telegram Payments
-	invoice := h.telegramPaymentService.CreatePremiumInvoice(
-		userID,
-		getPlanKey(planID),
-		selectedPlan.DurationDays,
-		int(selectedPlan.Price*100), // Конвертируем в копейки
-	)
-
-	// Отправляем счет пользователю
-	h.logger.Info("💳 Отправляем invoice через Telegram Payments",
-		zap.Int64("chat_id", chatID),
-		zap.String("payload", invoice.Payload),
-		zap.String("provider_token", invoice.ProviderToken))
-
-	err := h.telegramPaymentService.SendInvoice(chatID, invoice)
+	// Создаем платеж через YooKassa API
+	_, paymentID, confirmationURL, err := h.premiumService.CreatePayment(ctx, userID, planID)
 	if err != nil {
-		h.logger.Error("ошибка отправки счета", zap.Error(err))
-		return h.sendMessage(chatID, "Ошибка отправки счета. Попробуйте позже.")
+		h.logger.Error("ошибка создания платежа", zap.Error(err))
+		return h.sendMessage(chatID, "Ошибка создания платежа. Попробуйте позже.")
 	}
 
-	// Отправляем подтверждение
-	messageText := fmt.Sprintf(`💳 <b>Счет отправлен!</b>
+	h.logger.Info("💳 Платеж создан через YooKassa",
+		zap.String("payment_id", paymentID),
+		zap.Int64("user_id", userID),
+		zap.Int("plan_id", planID))
+
+	// Отправляем ссылку на оплату
+	messageText := fmt.Sprintf(`💳 <b>Платеж создан!</b>
 
 📋 <b>План:</b> %s
 💰 <b>Сумма:</b> %.0f %s
 ⏱ <b>Длительность:</b> %d дней
 
-✅ <b>Счет отправлен в чат</b>
+🔗 <b>Ссылка для оплаты:</b>
+<a href="%s">Оплатить %.0f %s</a>
+
+💳 <b>Доступные способы оплаты:</b>
+• Банковские карты (Visa, MasterCard, МИР)
+• СБП (Система быстрых платежей)
+• Электронные кошельки
+• QR-код для мобильных приложений
 
 ⚠️ <i>После оплаты премиум-подписка будет активирована автоматически</i>`,
-		selectedPlan.Name,
-		selectedPlan.Price,
-		selectedPlan.Currency,
-		selectedPlan.DurationDays)
+		selectedPlan.Name, selectedPlan.Price, selectedPlan.Currency,
+		selectedPlan.DurationDays, confirmationURL, selectedPlan.Price, selectedPlan.Currency)
 
 	msg := tgbotapi.NewMessage(chatID, messageText)
 	msg.ParseMode = "HTML"
 
 	_, err = h.bot.Send(msg)
 	return err
-}
-
-// getPlanKey возвращает ключ плана для payload
-func getPlanKey(planID int) string {
-	switch planID {
-	case 1:
-		return "month"
-	case 2:
-		return "quarter"
-	case 3:
-		return "year"
-	default:
-		return "custom"
-	}
-}
-
-// HandleTelegramWebhook обрабатывает webhook'и от Telegram для платежей
-func (h *Handler) HandleTelegramWebhook(ctx context.Context, webhookData []byte) error {
-	// Создаем адаптеры для существующих сервисов
-	userServiceAdapter := payment.NewUserServiceAdapter(h.userService)
-	paymentServiceAdapter := payment.NewPaymentServiceAdapter(h.premiumService, h.store.Payment())
-
-	// Создаем webhook handler для Telegram Payments
-	webhookHandler := payment.NewWebhookHandler(
-		h.telegramPaymentService,
-		userServiceAdapter,
-		paymentServiceAdapter,
-		h.store,
-	)
-
-	// Обрабатываем webhook
-	return webhookHandler.HandleWebhook(webhookData)
 }
 
 // handleButtonPress обрабатывает нажатия кнопок
@@ -2400,10 +2361,11 @@ func (h *Handler) handleLeaderboardButton(ctx context.Context, message *tgbotapi
 			rankIcon = fmt.Sprintf("№%d", rank)
 		}
 
-		// Имя + username
+		// Имя + username (скрываем часть username)
 		username := u.FirstName
 		if u.Username != "" {
-			username += fmt.Sprintf(" (@%s)", u.Username)
+			hiddenUsername := h.hideUsername(u.Username)
+			username += fmt.Sprintf(" (@%s)", hiddenUsername)
 		}
 
 		// Формат строки
@@ -2614,4 +2576,19 @@ func (h *Handler) handleReferralButton(ctx context.Context, message *tgbotapi.Me
 
 	_, err = h.bot.Send(msg)
 	return err
+}
+
+// hideUsername скрывает часть username для приватности
+func (h *Handler) hideUsername(username string) string {
+	if len(username) <= 3 {
+		// Если username очень короткий, скрываем все кроме первого символа
+		return string(username[0]) + strings.Repeat("*", len(username)-1)
+	}
+
+	// Скрываем среднюю часть username
+	visibleStart := len(username) / 3
+	visibleEnd := len(username) - visibleStart
+
+	hidden := username[:visibleStart] + strings.Repeat("*", len(username)-visibleStart-visibleEnd) + username[visibleEnd:]
+	return hidden
 }

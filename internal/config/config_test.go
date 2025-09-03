@@ -14,7 +14,6 @@ func cleanupEnv() {
 	os.Unsetenv("OPENROUTER_API_KEY")
 	os.Unsetenv("DEEPSEEK_API_KEY")
 	os.Unsetenv("YUKASSA_SHOP_ID")
-	os.Unsetenv("YUKASSA_PROVIDER_TOKEN")
 	os.Unsetenv("DB_HOST")
 	os.Unsetenv("DB_USER")
 	os.Unsetenv("DB_PASSWORD")
@@ -27,7 +26,6 @@ func TestLoadConfig(t *testing.T) {
 	os.Setenv("AI_PROVIDER", "openrouter")
 	os.Setenv("OPENROUTER_API_KEY", "test_openrouter_key")
 	os.Setenv("YUKASSA_SHOP_ID", "123456")
-	os.Setenv("YUKASSA_PROVIDER_TOKEN", "123456:TEST:789012")
 	os.Setenv("DB_HOST", "localhost")
 	os.Setenv("DB_USER", "test_user")
 	os.Setenv("DB_PASSWORD", "test_password")
@@ -69,7 +67,6 @@ func TestLoadConfigDeepSeek(t *testing.T) {
 	os.Setenv("AI_PROVIDER", "deepseek")
 	os.Setenv("DEEPSEEK_API_KEY", "test_deepseek_key")
 	os.Setenv("YUKASSA_SHOP_ID", "123456")
-	os.Setenv("YUKASSA_PROVIDER_TOKEN", "123456:TEST:789012")
 	os.Setenv("DB_HOST", "localhost")
 	os.Setenv("DB_USER", "test_user")
 	os.Setenv("DB_PASSWORD", "test_password")
@@ -158,8 +155,7 @@ func TestValidateConfig(t *testing.T) {
 			Name:     "test_db",
 		},
 		YooKassa: YooKassaConfig{
-			ShopID:        "123456",
-			ProviderToken: "123456:TEST:789012",
+			ShopID: "123456",
 		},
 	}
 	err = validateConfig(cfg)

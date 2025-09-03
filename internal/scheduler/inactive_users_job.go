@@ -201,13 +201,6 @@ func (j *InactiveUsersJob) generateTask(ctx context.Context, user *models.User) 
 4. Четкая инструкция
 5. Дружелюбный стиль
 6. Длина: максимум 2–3 предложения
-
-Примеры типов заданий:
-- <b>Task:</b> Describe your perfect day in 3 sentences.
-- <b>Task:</b> Tell me about your favorite hobby.
-- <b>Task:</b> Share an interesting fact about your city.
-- <b>Task:</b> What did you eat for breakfast? Describe it.
-- 
 Сгенерируй ОДНО конкретное задание прямо сейчас в этом формате:
 <b>Task:</b> [твое задание]`, difficulty, contextInfo, difficulty)
 
@@ -261,9 +254,3 @@ func (j *InactiveUsersJob) getDefaultTask(level string) string {
 	// Возвращаем случайное задание из списка
 	return tasks[time.Now().Unix()%int64(len(tasks))]
 }
-
-
-
-
-
-
