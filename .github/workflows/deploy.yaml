@@ -188,6 +188,7 @@ jobs:
                 - YUKASSA_SHOP_ID=${YUKASSA_SHOP_ID}
                 - YUKASSA_SECRET_KEY=${YUKASSA_SECRET_KEY}
                 - YUKASSA_TEST_MODE=${YUKASSA_TEST_MODE}
+                - TTS_ENABLED=${TTS_ENABLED}
               ports:
                 - "8080:8080"
               depends_on:
