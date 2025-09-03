@@ -42,7 +42,6 @@ RUN apt-get update && apt-get install -y \
 
 # Устанавливаем Mozilla TTS с оптимизацией
 RUN pip3 install --no-cache-dir TTS && \
-    pip3 cache purge && \
     rm -rf /tmp/* /var/tmp/* /root/.cache/pip
 
 # Добавляем метаданные
