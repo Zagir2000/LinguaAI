@@ -3,7 +3,6 @@ package bot
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"html"
@@ -112,6 +111,8 @@ type Handler struct {
 	rateLimiter      *RateLimiter             // rate limiter для защиты от спама
 	flashcardHandler *FlashcardHandler        // обработчик словарных карточек
 	store            store.Store              // хранилище для доступа к payment repo
+	ttsTextCache     map[string]string        // кэш для TTS текстов
+	ttsCacheMutex    sync.RWMutex             // мьютекс для кэша TTS
 }
 
 // NewHandler создает новый обработчик
@@ -148,6 +149,7 @@ func NewHandler(
 		referralService:  referralService,
 		rateLimiter:      NewRateLimiter(),
 		store:            store,
+		ttsTextCache:     make(map[string]string),
 	}
 
 	// Инициализируем обработчик карточек
@@ -384,15 +386,9 @@ func (h *Handler) handleCallbackQuery(ctx context.Context, callback *tgbotapi.Ca
 	case strings.HasPrefix(data, "tts_"):
 		// Обрабатываем TTS callback
 		encodedText := strings.TrimPrefix(data, "tts_")
-		textBytes, err := base64.StdEncoding.DecodeString(encodedText)
-		if err != nil {
-			h.logger.Error("ошибка декодирования TTS текста", zap.Error(err))
-			msg := tgbotapi.NewCallback(callback.ID, "❌ Ошибка обработки текста")
-			h.bot.Request(msg)
-			return err
-		}
-		text := string(textBytes)
-		return h.handleTTSCallback(ctx, callback, user, text)
+		// Теперь encodedText содержит ID текста, а не сам текст
+		textID := encodedText
+		return h.handleTTSCallback(ctx, callback, user, textID)
 
 	default:
 		h.logger.Warn("неизвестный callback", zap.String("data", data))
@@ -2644,8 +2640,27 @@ func (h *Handler) hideUsername(username string) string {
 }
 
 // handleTTSCallback обрабатывает запрос на озвучку текста
-func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.CallbackQuery, user *models.User, text string) error {
-	h.logger.Info("обработка TTS callback", zap.String("text", text))
+func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.CallbackQuery, user *models.User, textID string) error {
+	h.logger.Info("обработка TTS callback", zap.String("text_id", textID))
+
+	// Получаем текст из кэша
+	h.ttsCacheMutex.RLock()
+	text, exists := h.ttsTextCache[textID]
+	h.ttsCacheMutex.RUnlock()
+
+	if !exists {
+		h.logger.Error("текст не найден в кэше", zap.String("text_id", textID))
+		msg := tgbotapi.NewCallback(callback.ID, "❌ Текст для озвучки не найден")
+		h.bot.Request(msg)
+		return nil
+	}
+
+	// Удаляем текст из кэша после использования
+	h.ttsCacheMutex.Lock()
+	delete(h.ttsTextCache, textID)
+	h.ttsCacheMutex.Unlock()
+
+	h.logger.Info("текст найден в кэше", zap.String("text", text))
 
 	// Проверяем, что TTS сервис доступен
 	if h.ttsService == nil {
@@ -2672,7 +2687,9 @@ func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.Call
 		Name:  "tts_audio.wav",
 		Bytes: audioData,
 	})
-	audio.Caption = "🔊 Озвучка: " + text
+	// Очищаем текст от HTML тегов для заголовка
+	cleanText := h.stripHTMLTags(text)
+	audio.Caption = "🔊 Озвучка: " + cleanText
 
 	if _, err := h.bot.Send(audio); err != nil {
 		h.logger.Error("ошибка отправки аудио", zap.Error(err))
@@ -2685,9 +2702,21 @@ func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.Call
 
 // createTTSButton создает кнопку для озвучки текста
 func (h *Handler) createTTSButton(text string) tgbotapi.InlineKeyboardButton {
-	// Кодируем текст в base64 для передачи в callback
-	encodedText := base64.StdEncoding.EncodeToString([]byte(text))
-	return tgbotapi.NewInlineKeyboardButtonData("🔊 Озвучить", "tts_"+encodedText)
+	// Очищаем текст от HTML тегов для озвучки
+	cleanText := h.stripHTMLTags(text)
+
+	// Создаем уникальный ID для текста
+	textID := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	// Сохраняем оригинальный текст в кэше
+	h.ttsCacheMutex.Lock()
+	h.ttsTextCache[textID] = cleanText
+	h.ttsCacheMutex.Unlock()
+
+	// Используем короткий ID в callback data
+	callbackData := "tts_" + textID
+
+	return tgbotapi.NewInlineKeyboardButtonData("🔊 Озвучить", callbackData)
 }
 
 // sendMessageWithTTS отправляет сообщение с кнопкой озвучки (если TTS включен)
