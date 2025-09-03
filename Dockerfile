@@ -1,6 +1,10 @@
 # Используем официальный образ Go (последняя версия)
 FROM golang:1.23-alpine AS builder
 
+# Build arguments для принудительного обновления
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
 # Устанавливаем необходимые пакеты
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -22,8 +26,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 # Финальный образ
 FROM alpine:latest
 
+# Build arguments для метаданных
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
 # Устанавливаем необходимые пакеты
 RUN apk --no-cache add ca-certificates tzdata
+
+# Добавляем метаданные
+LABEL build_date="$BUILD_DATE" \
+      git_commit="$GIT_COMMIT" \
+      maintainer="Lingua AI Team"
 
 # Создаем пользователя для безопасности
 RUN addgroup -g 1001 -S appgroup && \

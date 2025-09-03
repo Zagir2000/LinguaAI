@@ -37,6 +37,9 @@ jobs:
           ghcr.io/zagir2000/linguaai:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ github.run_number }}
+          GIT_COMMIT=${{ github.sha }}
         
     - name: Run tests
       run: |
@@ -58,6 +61,12 @@ jobs:
           
           # Останавливаем текущие контейнеры
           docker-compose down || true
+          
+          # Принудительно обновляем образ
+          docker pull ghcr.io/zagir2000/linguaai:latest || true
+          
+          # Очищаем неиспользуемые образы и кэш
+          docker system prune -f || true
           
           # Очищаем директорию
           rm -rf *
@@ -206,8 +215,8 @@ jobs:
           # Проверяем, что Docker Compose установлен
           docker-compose --version
           
-          # Запускаем контейнеры
-          docker-compose up -d
+          # Запускаем контейнеры с принудительным пересозданием
+          docker-compose up -d --force-recreate --no-deps app
           
           # Ждем запуска и проверяем статус
           sleep 30
