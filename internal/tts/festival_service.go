@@ -12,6 +12,16 @@ import (
 	"go.uber.org/zap"
 )
 
+// VoiceParameters содержит параметры для оптимизации голоса
+type VoiceParameters struct {
+	DurationStretch string
+	IntTargetMean   string
+	IntTargetStd    string
+	F0Mean          string
+	F0Std           string
+	DurationFactor  string
+}
+
 // FestivalService предоставляет функциональность Text-to-Speech через Festival
 type FestivalService struct {
 	logger *zap.Logger
@@ -76,10 +86,11 @@ func (s *FestivalService) checkFestival() error {
 func (s *FestivalService) getBestVoice() string {
 	// Список голосов в порядке предпочтения (от лучшего к худшему)
 	voices := []string{
-		"voice_cmu_us_slt_arctic_hts", // Высококачественный женский голос
-		"voice_cmu_us_rms_arctic_hts", // Высококачественный мужской голос
-		"voice_cmu_us_awb_arctic_hts", // Высококачественный шотландский голос
-		"voice_kallpc16k",             // Стандартный голос
+		"voice_us1_mbrola", // Американский мужской голос (MBROLA)
+		"voice_us2_mbrola", // Американский женский голос (MBROLA)
+		"voice_us3_mbrola", // Американский мужской голос (MBROLA)
+		"voice_rablpc16k",  // Британский голос
+		"voice_kallpc16k",  // Стандартный голос
 	}
 
 	// Проверяем доступность голосов
@@ -94,6 +105,62 @@ func (s *FestivalService) getBestVoice() string {
 	// Если ничего не найдено, используем стандартный
 	s.logger.Warn("🎤 Используем стандартный голос")
 	return "voice_kallpc16k"
+}
+
+// getVoiceParameters возвращает оптимизированные параметры для конкретного голоса
+func (s *FestivalService) getVoiceParameters(voice string) VoiceParameters {
+	switch voice {
+	case "voice_us1_mbrola":
+		// Американский мужской голос (MBROLA) - глубокий и четкий
+		return VoiceParameters{
+			DurationStretch: "0.95",
+			IntTargetMean:   "0.0",
+			IntTargetStd:    "1.0",
+			F0Mean:          "120", // Низкая частота для мужского голоса
+			F0Std:           "20",
+			DurationFactor:  "1.0",
+		}
+	case "voice_us2_mbrola":
+		// Американский женский голос (MBROLA) - высокий и четкий
+		return VoiceParameters{
+			DurationStretch: "0.9",
+			IntTargetMean:   "0.0",
+			IntTargetStd:    "1.2",
+			F0Mean:          "180", // Высокая частота для женского голоса
+			F0Std:           "30",
+			DurationFactor:  "1.0",
+		}
+	case "voice_us3_mbrola":
+		// Американский мужской голос (MBROLA) - средний тон
+		return VoiceParameters{
+			DurationStretch: "0.95",
+			IntTargetMean:   "0.0",
+			IntTargetStd:    "1.1",
+			F0Mean:          "140", // Средняя частота
+			F0Std:           "25",
+			DurationFactor:  "1.0",
+		}
+	case "voice_rablpc16k":
+		// Британский голос - четкий и формальный
+		return VoiceParameters{
+			DurationStretch: "1.0",
+			IntTargetMean:   "0.0",
+			IntTargetStd:    "0.9",
+			F0Mean:          "160",
+			F0Std:           "20",
+			DurationFactor:  "1.0",
+		}
+	default:
+		// Стандартный голос
+		return VoiceParameters{
+			DurationStretch: "1.0",
+			IntTargetMean:   "0.0",
+			IntTargetStd:    "1.0",
+			F0Mean:          "150",
+			F0Std:           "25",
+			DurationFactor:  "1.0",
+		}
+	}
 }
 
 // generateAudio генерирует аудио через Festival
@@ -114,14 +181,18 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	// Получаем лучший доступный голос
 	bestVoice := s.getBestVoice()
 
+	// Получаем оптимизированные параметры для выбранного голоса
+	voiceParams := s.getVoiceParameters(bestVoice)
+
 	// Команда text2wave для генерации аудио с улучшенными параметрами качества
 	cmd := exec.CommandContext(ctx, "text2wave",
 		"-eval", fmt.Sprintf("(%s)", bestVoice), // Используем лучший доступный голос
-		"-eval", "(Parameter.set 'Duration_Stretch 0.9)", // Немного быстрее для естественности
-		"-eval", "(Parameter.set 'Int_Target_Mean 0.0)", // Нормальная интонация
-		"-eval", "(Parameter.set 'Int_Target_Std 1.2)", // Больше естественных вариаций
-		"-eval", "(Parameter.set 'F0_Mean 180)", // Оптимальная частота для женского голоса
-		"-eval", "(Parameter.set 'F0_Std 30)", // Естественные вариации частоты
+		"-eval", fmt.Sprintf("(Parameter.set 'Duration_Stretch %s)", voiceParams.DurationStretch),
+		"-eval", fmt.Sprintf("(Parameter.set 'Int_Target_Mean %s)", voiceParams.IntTargetMean),
+		"-eval", fmt.Sprintf("(Parameter.set 'Int_Target_Std %s)", voiceParams.IntTargetStd),
+		"-eval", fmt.Sprintf("(Parameter.set 'F0_Mean %s)", voiceParams.F0Mean),
+		"-eval", fmt.Sprintf("(Parameter.set 'F0_Std %s)", voiceParams.F0Std),
+		"-eval", fmt.Sprintf("(Parameter.set 'Duration_Factor %s)", voiceParams.DurationFactor),
 		tempTextFile, "-o", tempAudioFile)
 
 	// Перенаправляем вывод

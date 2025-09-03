@@ -37,9 +37,14 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     festival \
     festvox-kallpc16k \
-    festvox-cmu-us-slt-arctic-hts \
-    festvox-cmu-us-rms-arctic-hts \
-    festvox-cmu-us-awb-arctic-hts \
+    festvox-us1 \
+    festvox-us2 \
+    festvox-us3 \
+    festvox-rablpc16k \
+    mbrola \
+    mbrola-us1 \
+    mbrola-us2 \
+    mbrola-us3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Добавляем метаданные
