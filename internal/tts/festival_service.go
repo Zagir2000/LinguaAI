@@ -86,11 +86,11 @@ func (s *FestivalService) checkFestival() error {
 func (s *FestivalService) getBestVoice() string {
 	// Список голосов в порядке предпочтения (от лучшего к худшему)
 	voices := []string{
-		"voice_us2_mbrola",  // Американский женский голос (MBROLA) - высокое качество
-		"voice_us1_mbrola",  // Американский мужской голос (MBROLA) - высокое качество
-		"voice_us3_mbrola",  // Американский мужской голос (MBROLA) - высокое качество
-		"voice_rab_diphone", // Британский голос
-		"voice_kal_diphone", // Стандартный голос
+		"voice_rab_diphone", // Британский голос - более естественный
+		"voice_kal_diphone", // Стандартный голос - более естественный
+		"voice_us2_mbrola",  // Американский женский голос (MBROLA) - роботизированный
+		"voice_us1_mbrola",  // Американский мужской голос (MBROLA) - роботизированный
+		"voice_us3_mbrola",  // Американский мужской голос (MBROLA) - роботизированный
 	}
 
 	// Проверяем доступность голосов через text2wave
@@ -192,7 +192,9 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	bestVoice := s.getBestVoice()
 
 	// Команда text2wave для генерации аудио с выбранным голосом
-	cmd := exec.CommandContext(ctx, "text2wave", "-eval", fmt.Sprintf("(%s)", bestVoice), tempTextFile, "-o", tempAudioFile)
+	cmd := exec.CommandContext(ctx, "text2wave",
+		"-eval", fmt.Sprintf("(%s)", bestVoice),
+		tempTextFile, "-o", tempAudioFile)
 
 	// Перенаправляем вывод
 	var stdout, stderr bytes.Buffer
