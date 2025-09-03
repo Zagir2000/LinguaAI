@@ -89,7 +89,7 @@ func (s *MozillaService) generateAudio(ctx context.Context, text string) ([]byte
 		"--model_name", "tts_models/en/ljspeech/tacotron2-DDC",
 		"--out_path", tempAudioFile)
 
-	// Выполняем команду
+	// Выполняем команду Mozilla TTS
 	if err := cmd.Run(); err != nil {
 		s.logger.Error("ошибка выполнения mozilla tts", zap.Error(err))
 		return nil, fmt.Errorf("ошибка выполнения mozilla tts: %w", err)

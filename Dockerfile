@@ -38,14 +38,12 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    espeak \
-    espeak-data \
-    libespeak1 \
-    libespeak-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем Mozilla TTS
-RUN pip3 install TTS
+# Устанавливаем Mozilla TTS с оптимизацией
+RUN pip3 install --no-cache-dir TTS && \
+    pip3 cache purge && \
+    rm -rf /tmp/* /var/tmp/* /root/.cache/pip
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \
@@ -65,9 +63,10 @@ COPY --from=builder /app/main .
 # Копируем миграции
 COPY --from=builder /app/scripts ./scripts
 
-# Создаем директорию для логов
+# Создаем директорию для логов и очищаем кэш
 RUN mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app
+    chown -R appuser:appgroup /app && \
+    rm -rf /tmp/* /var/tmp/* /root/.cache
 
 # Переключаемся на непривилегированного пользователя
 USER appuser
