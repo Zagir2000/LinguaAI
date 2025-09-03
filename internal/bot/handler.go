@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"html"
@@ -19,6 +20,7 @@ import (
 
 	"lingua-ai/internal/premium"
 	"lingua-ai/internal/store"
+	"lingua-ai/internal/tts"
 
 	"lingua-ai/internal/ai"
 	"lingua-ai/internal/flashcards"
@@ -97,6 +99,7 @@ type Handler struct {
 	messageService   *message.Service
 	aiClient         ai.AIClient
 	whisperClient    *whisper.Client
+	ttsService       tts.TTSService
 	messages         *Messages
 	logger           *zap.Logger
 	userMetrics      *metrics.Metrics
@@ -118,6 +121,7 @@ func NewHandler(
 	messageService *message.Service,
 	aiClient ai.AIClient,
 	whisperClient *whisper.Client,
+	ttsService tts.TTSService,
 	logger *zap.Logger,
 	userMetrics *metrics.Metrics,
 	aiMetrics *metrics.Metrics,
@@ -132,6 +136,7 @@ func NewHandler(
 		messageService:   messageService,
 		aiClient:         aiClient,
 		whisperClient:    whisperClient,
+		ttsService:       ttsService,
 		messages:         NewMessages(),
 		logger:           logger,
 		userMetrics:      userMetrics,
@@ -375,6 +380,19 @@ func (h *Handler) handleCallbackQuery(ctx context.Context, callback *tgbotapi.Ca
 
 	case data == "main_stats":
 		return h.handleMainStatsCallback(ctx, callback, user)
+
+	case strings.HasPrefix(data, "tts_"):
+		// Обрабатываем TTS callback
+		encodedText := strings.TrimPrefix(data, "tts_")
+		textBytes, err := base64.StdEncoding.DecodeString(encodedText)
+		if err != nil {
+			h.logger.Error("ошибка декодирования TTS текста", zap.Error(err))
+			msg := tgbotapi.NewCallback(callback.ID, "❌ Ошибка обработки текста")
+			h.bot.Request(msg)
+			return err
+		}
+		text := string(textBytes)
+		return h.handleTTSCallback(ctx, callback, user, text)
 
 	default:
 		h.logger.Warn("неизвестный callback", zap.String("data", data))
@@ -762,7 +780,7 @@ func (h *Handler) handleEnglishMessage(ctx context.Context, message *tgbotapi.Me
 	h.updateStudyActivity(user) // Обновляем study streak только раз в день
 	h.userMetrics.RecordXP(user.ID, xp, "english_message")
 
-	return h.sendMessage(message.Chat.ID, h.cleanAIResponse(response.Content))
+	return h.sendMessageWithTTS(message.Chat.ID, h.cleanAIResponse(response.Content))
 }
 
 // handleRussianMessage обрабатывает сообщения на русском языке
@@ -2620,4 +2638,133 @@ func (h *Handler) hideUsername(username string) string {
 	// Создаем строку со звездочками в середине
 	hidden := username[:showStart] + strings.Repeat("*", len(username)-showStart-showEnd) + username[len(username)-showEnd:]
 	return hidden
+}
+
+// handleTTSCallback обрабатывает запрос на озвучку текста
+func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.CallbackQuery, user *models.User, text string) error {
+	h.logger.Info("обработка TTS callback", zap.String("text", text))
+
+	// Проверяем, что TTS сервис доступен
+	if h.ttsService == nil {
+		msg := tgbotapi.NewCallback(callback.ID, "❌ Озвучка временно недоступна")
+		h.bot.Request(msg)
+		return nil
+	}
+
+	// Отправляем уведомление о начале генерации
+	msg := tgbotapi.NewCallback(callback.ID, "🎵 Генерирую аудио...")
+	h.bot.Request(msg)
+
+	// Генерируем аудио
+	audioData, err := h.ttsService.SynthesizeText(ctx, text)
+	if err != nil {
+		h.logger.Error("ошибка генерации TTS", zap.Error(err))
+		msg := tgbotapi.NewCallback(callback.ID, "❌ Ошибка генерации аудио")
+		h.bot.Request(msg)
+		return err
+	}
+
+	// Отправляем аудио
+	audio := tgbotapi.NewAudio(callback.Message.Chat.ID, tgbotapi.FileBytes{
+		Name:  "tts_audio.wav",
+		Bytes: audioData,
+	})
+	audio.Caption = "🔊 Озвучка: " + text
+
+	if _, err := h.bot.Send(audio); err != nil {
+		h.logger.Error("ошибка отправки аудио", zap.Error(err))
+		return err
+	}
+
+	h.logger.Info("TTS аудио отправлено", zap.String("text", text))
+	return nil
+}
+
+// createTTSButton создает кнопку для озвучки текста
+func (h *Handler) createTTSButton(text string) tgbotapi.InlineKeyboardButton {
+	// Кодируем текст в base64 для передачи в callback
+	encodedText := base64.StdEncoding.EncodeToString([]byte(text))
+	return tgbotapi.NewInlineKeyboardButtonData("🔊 Озвучить", "tts_"+encodedText)
+}
+
+// sendMessageWithTTS отправляет сообщение с кнопкой озвучки (если TTS включен)
+func (h *Handler) sendMessageWithTTS(chatID int64, text string) error {
+	// Если TTS отключен, отправляем обычное сообщение
+	if h.ttsService == nil {
+		return h.sendMessage(chatID, text)
+	}
+
+	// Извлекаем английский текст из ответа AI
+	englishText := h.extractEnglishText(text)
+	if englishText == "" {
+		// Если английского текста нет, отправляем обычное сообщение
+		return h.sendMessage(chatID, text)
+	}
+
+	// Создаем кнопку озвучки
+	ttsButton := h.createTTSButton(englishText)
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(ttsButton),
+	)
+
+	// Отправляем сообщение с кнопкой
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ReplyMarkup = keyboard
+	msg.ParseMode = "HTML"
+
+	if _, err := h.bot.Send(msg); err != nil {
+		h.logger.Error("ошибка отправки сообщения с TTS", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// extractEnglishText извлекает английский текст из ответа AI
+func (h *Handler) extractEnglishText(text string) string {
+	// Простая логика: ищем текст в кавычках или после двоеточия
+	// Это можно улучшить в зависимости от формата ответов AI
+
+	// Ищем текст в кавычках
+	if strings.Contains(text, "\"") {
+		start := strings.Index(text, "\"")
+		end := strings.LastIndex(text, "\"")
+		if start != -1 && end != -1 && end > start {
+			quoted := text[start+1 : end]
+			// Проверяем, что это английский текст (содержит латинские буквы)
+			if h.containsEnglish(quoted) {
+				return quoted
+			}
+		}
+	}
+
+	// Ищем текст после двоеточия
+	if strings.Contains(text, ":") {
+		parts := strings.Split(text, ":")
+		if len(parts) > 1 {
+			afterColon := strings.TrimSpace(parts[1])
+			// Берем первую строку после двоеточия
+			lines := strings.Split(afterColon, "\n")
+			if len(lines) > 0 && h.containsEnglish(lines[0]) {
+				return strings.TrimSpace(lines[0])
+			}
+		}
+	}
+
+	// Если ничего не найдено, возвращаем весь текст если он содержит английские буквы
+	if h.containsEnglish(text) {
+		return text
+	}
+
+	return ""
+}
+
+// containsEnglish проверяет, содержит ли текст английские буквы
+func (h *Handler) containsEnglish(text string) bool {
+	for _, r := range text {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
 }

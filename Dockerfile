@@ -30,8 +30,8 @@ FROM alpine:latest
 ARG BUILD_DATE
 ARG GIT_COMMIT
 
-# Устанавливаем необходимые пакеты
-RUN apk --no-cache add ca-certificates tzdata
+# Устанавливаем необходимые пакеты включая Festival TTS
+RUN apk --no-cache add ca-certificates tzdata festival
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \

@@ -17,6 +17,7 @@ type Config struct {
 	Database DatabaseConfig
 	App      AppConfig
 	YooKassa YooKassaConfig
+	TTS      TTSConfig
 }
 
 // TelegramConfig содержит настройки Telegram бота
@@ -74,6 +75,11 @@ type YooKassaConfig struct {
 	TestMode  bool
 }
 
+// TTSConfig содержит настройки Text-to-Speech
+type TTSConfig struct {
+	Enabled bool
+}
+
 // Load загружает конфигурацию из переменных окружения и .env
 func Load() (*Config, error) {
 	_ = godotenv.Load()
@@ -111,6 +117,9 @@ func Load() (*Config, error) {
 	cfg.YooKassa.ShopID = getEnvDefault("YUKASSA_SHOP_ID", "test_shop_id")
 	cfg.YooKassa.SecretKey = getEnvDefault("YUKASSA_SECRET_KEY", "test_secret_key")
 	cfg.YooKassa.TestMode = getEnvBoolDefault("YUKASSA_TEST_MODE", true)
+
+	// TTS
+	cfg.TTS.Enabled = getEnvBoolDefault("TTS_ENABLED", false)
 
 	// App
 	cfg.App.Env = getEnvDefault("APP_ENV", "development")

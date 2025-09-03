@@ -21,6 +21,7 @@ import (
 	"lingua-ai/internal/referral"
 	"lingua-ai/internal/scheduler"
 	"lingua-ai/internal/store"
+	"lingua-ai/internal/tts"
 	"lingua-ai/internal/user"
 	"lingua-ai/internal/webhook"
 	"lingua-ai/internal/whisper"
@@ -80,6 +81,15 @@ func main() {
 	// Инициализация Whisper клиента
 	whisperClient := whisper.NewClient(cfg.Whisper.APIURL, logger)
 
+	// Инициализация TTS сервиса
+	var ttsService tts.TTSService
+	if cfg.TTS.Enabled {
+		ttsService = tts.NewFestivalService(logger)
+		logger.Info("Festival TTS сервис инициализирован")
+	} else {
+		logger.Info("TTS сервис отключен")
+	}
+
 	// Инициализация сервисов
 	userService := user.NewService(store, logger)
 	messageService := message.NewService(store, logger)
@@ -124,7 +134,7 @@ func main() {
 		zap.Int64("id", botInfo.ID))
 
 	// Инициализация обработчика
-	handler := bot.NewHandler(botAPI, userService, messageService, aiClient, whisperClient, logger, userMetrics, aiMetrics, premiumService, referralService, flashcardService, store)
+	handler := bot.NewHandler(botAPI, userService, messageService, aiClient, whisperClient, ttsService, logger, userMetrics, aiMetrics, premiumService, referralService, flashcardService, store)
 
 	// Инициализация планировщика задач
 	taskScheduler := scheduler.NewScheduler(logger)

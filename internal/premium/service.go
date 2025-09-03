@@ -55,7 +55,7 @@ func (s *Service) GetPremiumPlans() []models.PremiumPlan {
 			ID:           1,
 			Name:         "Месяц",
 			DurationDays: 30,
-			Price:        1.0,
+			Price:        199.0,
 			Currency:     "RUB",
 			Description:  "Премиум-подписка на 1 месяц",
 			Features: []string{
@@ -69,7 +69,7 @@ func (s *Service) GetPremiumPlans() []models.PremiumPlan {
 			ID:           2,
 			Name:         "3 месяца",
 			DurationDays: 90,
-			Price:        2.0,
+			Price:        399.0,
 			Currency:     "RUB",
 			Description:  "Премиум-подписка на 3 месяца (экономия 20%)",
 			Features: []string{
@@ -84,7 +84,7 @@ func (s *Service) GetPremiumPlans() []models.PremiumPlan {
 			ID:           3,
 			Name:         "Год",
 			DurationDays: 365,
-			Price:        3.0,
+			Price:        1799.0,
 			Currency:     "RUB",
 			Description:  "Премиум-подписка на 1 год (экономия 30%)",
 			Features: []string{

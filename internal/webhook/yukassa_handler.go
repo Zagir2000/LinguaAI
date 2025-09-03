@@ -72,7 +72,7 @@ func (h *YooKassaWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Re
 	defer r.Body.Close()
 
 	// Логируем тело webhook'а для отладки
-	h.logger.Info("тело webhook'а",
+	h.logger.Debug("тело webhook'а",
 		zap.String("body", string(body)),
 		zap.Int("body_length", len(body)))
 

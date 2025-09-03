@@ -215,14 +215,37 @@ jobs:
           # Проверяем, что Docker Compose установлен
           docker-compose --version
           
-          # Запускаем контейнеры с принудительным пересозданием
-          docker-compose up -d --force-recreate --no-deps app
+          # Запускаем все контейнеры с принудительным пересозданием
+          docker-compose up -d --force-recreate
           
-          # Ждем запуска и проверяем статус
-          sleep 30
+          # Ждем запуска всех сервисов
+          echo "Ожидание запуска PostgreSQL..."
+          sleep 10
+          
+          # Проверяем готовность PostgreSQL
+          echo "Проверка готовности PostgreSQL..."
+          docker-compose exec -T postgres pg_isready -U lingua_user -d lingua_ai || echo "PostgreSQL еще не готов"
+          
+          # Проверяем статус контейнеров
           docker-compose ps
           
-          # Проверяем health check
+          # Ждем готовности приложения
+          echo "Ожидание готовности приложения..."
+          sleep 20
+          
+          # Проверяем health check с retry
+          echo "Проверка health check приложения..."
+          for i in {1..5}; do
+            if curl -f http://localhost:8080/health; then
+              echo "✅ Приложение готово!"
+              break
+            else
+              echo "⏳ Попытка $i/5 - приложение еще не готово, ждем..."
+              sleep 10
+            fi
+          done
+          
+          # Финальная проверка
           curl -f http://localhost:8080/health || exit 1
           
           echo "✅ Deployment completed successfully!"
