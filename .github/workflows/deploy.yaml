@@ -114,6 +114,9 @@ jobs:
           YUKASSA_SHOP_ID=${{ secrets.YUKASSA_SHOP_ID }}
           YUKASSA_SECRET_KEY=${{ secrets.YUKASSA_SECRET_KEY }}
           YUKASSA_TEST_MODE=${{ secrets.YUKASSA_TEST_MODE || 'false' }}
+          
+          # TTS Configuration
+          TTS_ENABLED=${{ secrets.TTS_ENABLED || 'false' }}
           EOF
           
           # Создаем docker-compose.yml с готовым образом
