@@ -899,7 +899,7 @@ func (h *Handler) handleRussianMessage(ctx context.Context, message *tgbotapi.Me
 	h.updateStudyActivity(user) // Обновляем study streak только раз в день
 	h.userMetrics.RecordXP(user.ID, 3, "russian_message")
 
-	return h.sendMessage(message.Chat.ID, response.Content)
+	return h.sendMessageWithTTS(message.Chat.ID, response.Content)
 }
 
 // handleExerciseRequest обрабатывает запросы на упражнения/задания
@@ -953,7 +953,7 @@ Options: go/goes/going
 	h.updateStudyActivity(user) // Обновляем study streak только раз в день
 	h.userMetrics.RecordXP(user.ID, 5, "exercise_request")
 
-	return h.sendMessage(message.Chat.ID, response.Content)
+	return h.sendMessageWithTTS(message.Chat.ID, response.Content)
 }
 
 // handleStartCommand обрабатывает команду /start
@@ -2742,8 +2742,11 @@ func (h *Handler) extractEnglishText(text string) string {
 		}
 		// Если строка содержит английские буквы, возвращаем её
 		if h.containsEnglish(line) {
-			h.logger.Info("🔍 Найден английский текст в строке", zap.String("line", line))
-			return line
+			// Дополнительная проверка: строка должна содержать больше английских букв чем русских
+			if h.isEnglishMessage(line) {
+				h.logger.Info("🔍 Найден английский текст в строке", zap.String("line", line))
+				return line
+			}
 		}
 	}
 
