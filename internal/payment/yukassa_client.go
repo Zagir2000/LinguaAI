@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, curre
 	amountStr := fmt.Sprintf("%.2f", amount)
 
 	// Создаем уникальный return URL для этого платежа
-	returnURL := fmt.Sprintf("https://t.me/your_bot_username?start=payment_%d", time.Now().Unix())
+	returnURL := fmt.Sprintf("https://lingua-ai.ru/payment/success?payment_id=%d", time.Now().Unix())
 
 	paymentReq := PaymentRequest{
 		Amount: Amount{
@@ -132,6 +133,14 @@ func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, curre
 	req.Header.Set("Authorization", "Basic "+c.getAuthHeader())
 	req.Header.Set("Idempotence-Key", fmt.Sprintf("payment_%d", time.Now().UnixNano()))
 
+	// Логируем запрос для отладки
+	c.logger.Info("отправляем запрос в YooKassa",
+		zap.String("url", req.URL.String()),
+		zap.String("method", req.Method),
+		zap.String("shop_id", c.shopID),
+		zap.String("request_body", string(reqBody)),
+		zap.Bool("test_mode", c.testMode))
+
 	// Отправляем запрос
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -141,7 +150,15 @@ func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, curre
 
 	// Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("неожиданный статус ответа: %d", resp.StatusCode)
+		// Читаем тело ответа для деталей ошибки
+		body, _ := io.ReadAll(resp.Body)
+		c.logger.Error("ошибка YooKassa API",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response_body", string(body)),
+			zap.String("request_body", string(reqBody)),
+			zap.String("shop_id", c.shopID),
+			zap.Bool("test_mode", c.testMode))
+		return "", "", fmt.Errorf("неожиданный статус ответа: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	// Парсим ответ
