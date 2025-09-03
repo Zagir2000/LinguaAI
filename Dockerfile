@@ -30,22 +30,22 @@ FROM ubuntu:20.04
 ARG BUILD_DATE
 ARG GIT_COMMIT
 
-# Устанавливаем необходимые пакеты включая Festival TTS
+# Устанавливаем необходимые пакеты включая Mozilla TTS
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     tzdata \
-    festival \
-    festvox-kallpc16k \
-    festvox-us1 \
-    festvox-us2 \
-    festvox-us3 \
-    festvox-rablpc16k \
-    mbrola \
-    mbrola-us1 \
-    mbrola-us2 \
-    mbrola-us3 \
+    python3 \
+    python3-pip \
+    python3-venv \
+    espeak \
+    espeak-data \
+    libespeak1 \
+    libespeak-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем Mozilla TTS
+RUN pip3 install TTS
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \
