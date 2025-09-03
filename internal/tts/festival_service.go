@@ -86,25 +86,35 @@ func (s *FestivalService) checkFestival() error {
 func (s *FestivalService) getBestVoice() string {
 	// Список голосов в порядке предпочтения (от лучшего к худшему)
 	voices := []string{
-		"voice_us1_mbrola", // Американский мужской голос (MBROLA)
-		"voice_us2_mbrola", // Американский женский голос (MBROLA)
-		"voice_us3_mbrola", // Американский мужской голос (MBROLA)
-		"voice_rablpc16k",  // Британский голос
-		"voice_kallpc16k",  // Стандартный голос
+		"voice_us2_mbrola",  // Американский женский голос (MBROLA) - высокое качество
+		"voice_us1_mbrola",  // Американский мужской голос (MBROLA) - высокое качество
+		"voice_us3_mbrola",  // Американский мужской голос (MBROLA) - высокое качество
+		"voice_rab_diphone", // Британский голос
+		"voice_kal_diphone", // Стандартный голос
 	}
 
-	// Проверяем доступность голосов
+	// Проверяем доступность голосов через text2wave
 	for _, voice := range voices {
-		cmd := exec.Command("festival", "-eval", fmt.Sprintf("(voice_%s)", voice), "-eval", "(exit)")
+		// Создаем временный файл для тестирования
+		testFile := "/tmp/test_voice.txt"
+		if err := s.writeTextFile(testFile, "test"); err != nil {
+			continue
+		}
+		defer s.cleanupFile(testFile)
+
+		// Тестируем голос через text2wave
+		cmd := exec.Command("text2wave", "-eval", fmt.Sprintf("(%s)", voice), testFile, "-o", "/tmp/test_output.wav")
 		if err := cmd.Run(); err == nil {
+			s.cleanupFile("/tmp/test_output.wav")
 			s.logger.Info("🎤 Используем голос", zap.String("voice", voice))
 			return voice
 		}
+		s.cleanupFile("/tmp/test_output.wav")
 	}
 
 	// Если ничего не найдено, используем стандартный
 	s.logger.Warn("🎤 Используем стандартный голос")
-	return "voice_kallpc16k"
+	return "voice_kal_diphone"
 }
 
 // getVoiceParameters возвращает оптимизированные параметры для конкретного голоса
@@ -140,7 +150,7 @@ func (s *FestivalService) getVoiceParameters(voice string) VoiceParameters {
 			F0Std:           "25",
 			DurationFactor:  "1.0",
 		}
-	case "voice_rablpc16k":
+	case "voice_rab_diphone":
 		// Британский голос - четкий и формальный
 		return VoiceParameters{
 			DurationStretch: "1.0",
@@ -151,7 +161,7 @@ func (s *FestivalService) getVoiceParameters(voice string) VoiceParameters {
 			DurationFactor:  "1.0",
 		}
 	default:
-		// Стандартный голос
+		// Стандартный голос - используем базовые параметры
 		return VoiceParameters{
 			DurationStretch: "1.0",
 			IntTargetMean:   "0.0",
@@ -181,19 +191,8 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	// Получаем лучший доступный голос
 	bestVoice := s.getBestVoice()
 
-	// Получаем оптимизированные параметры для выбранного голоса
-	voiceParams := s.getVoiceParameters(bestVoice)
-
-	// Команда text2wave для генерации аудио с улучшенными параметрами качества
-	cmd := exec.CommandContext(ctx, "text2wave",
-		"-eval", fmt.Sprintf("(%s)", bestVoice), // Используем лучший доступный голос
-		"-eval", fmt.Sprintf("(Parameter.set 'Duration_Stretch %s)", voiceParams.DurationStretch),
-		"-eval", fmt.Sprintf("(Parameter.set 'Int_Target_Mean %s)", voiceParams.IntTargetMean),
-		"-eval", fmt.Sprintf("(Parameter.set 'Int_Target_Std %s)", voiceParams.IntTargetStd),
-		"-eval", fmt.Sprintf("(Parameter.set 'F0_Mean %s)", voiceParams.F0Mean),
-		"-eval", fmt.Sprintf("(Parameter.set 'F0_Std %s)", voiceParams.F0Std),
-		"-eval", fmt.Sprintf("(Parameter.set 'Duration_Factor %s)", voiceParams.DurationFactor),
-		tempTextFile, "-o", tempAudioFile)
+	// Команда text2wave для генерации аудио с выбранным голосом
+	cmd := exec.CommandContext(ctx, "text2wave", "-eval", fmt.Sprintf("(%s)", bestVoice), tempTextFile, "-o", tempAudioFile)
 
 	// Перенаправляем вывод
 	var stdout, stderr bytes.Buffer
@@ -204,8 +203,18 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	if err := cmd.Run(); err != nil {
 		s.logger.Error("ошибка выполнения text2wave",
 			zap.Error(err),
-			zap.String("stderr", stderr.String()))
+			zap.String("stderr", stderr.String()),
+			zap.String("stdout", stdout.String()))
 		return nil, fmt.Errorf("ошибка выполнения text2wave: %w", err)
+	}
+
+	// Проверяем, что аудио файл был создан
+	if _, err := os.Stat(tempAudioFile); os.IsNotExist(err) {
+		s.logger.Error("аудио файл не был создан",
+			zap.String("filename", tempAudioFile),
+			zap.String("stderr", stderr.String()),
+			zap.String("stdout", stdout.String()))
+		return nil, fmt.Errorf("аудио файл не был создан: %s", tempAudioFile)
 	}
 
 	// Читаем сгенерированное аудио
