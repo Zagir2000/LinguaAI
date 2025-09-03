@@ -36,7 +36,7 @@ func (s *FestivalService) SynthesizeText(ctx context.Context, text string) ([]by
 
 	// Проверяем, что Festival установлен
 	if err := s.checkFestival(); err != nil {
-		return nil, fmt.Errorf("Festival не установлен: %w", err)
+		return nil, fmt.Errorf("festival не установлен: %w", err)
 	}
 
 	s.logger.Info("🎵 генерируем аудио через Festival",
@@ -65,11 +65,35 @@ func (s *FestivalService) checkFestival() error {
 	cmd := exec.Command("festival", "--version")
 	output, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("Festival не найден: %w", err)
+		return fmt.Errorf("festival не найден: %w", err)
 	}
 
 	s.logger.Debug("Festival версия", zap.String("version", string(output)))
 	return nil
+}
+
+// getBestVoice возвращает лучший доступный голос
+func (s *FestivalService) getBestVoice() string {
+	// Список голосов в порядке предпочтения (от лучшего к худшему)
+	voices := []string{
+		"voice_cmu_us_slt_arctic_hts", // Высококачественный женский голос
+		"voice_cmu_us_rms_arctic_hts", // Высококачественный мужской голос
+		"voice_cmu_us_awb_arctic_hts", // Высококачественный шотландский голос
+		"voice_kallpc16k",             // Стандартный голос
+	}
+
+	// Проверяем доступность голосов
+	for _, voice := range voices {
+		cmd := exec.Command("festival", "-eval", fmt.Sprintf("(voice_%s)", voice), "-eval", "(exit)")
+		if err := cmd.Run(); err == nil {
+			s.logger.Info("🎤 Используем голос", zap.String("voice", voice))
+			return voice
+		}
+	}
+
+	// Если ничего не найдено, используем стандартный
+	s.logger.Warn("🎤 Используем стандартный голос")
+	return "voice_kallpc16k"
 }
 
 // generateAudio генерирует аудио через Festival
@@ -87,8 +111,18 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	tempAudioFile := fmt.Sprintf("/tmp/festival_audio_%d.wav", time.Now().UnixNano())
 	defer s.cleanupFile(tempAudioFile)
 
-	// Команда text2wave для генерации аудио
-	cmd := exec.CommandContext(ctx, "text2wave", tempTextFile, "-o", tempAudioFile)
+	// Получаем лучший доступный голос
+	bestVoice := s.getBestVoice()
+
+	// Команда text2wave для генерации аудио с улучшенными параметрами качества
+	cmd := exec.CommandContext(ctx, "text2wave",
+		"-eval", fmt.Sprintf("(%s)", bestVoice), // Используем лучший доступный голос
+		"-eval", "(Parameter.set 'Duration_Stretch 0.9)", // Немного быстрее для естественности
+		"-eval", "(Parameter.set 'Int_Target_Mean 0.0)", // Нормальная интонация
+		"-eval", "(Parameter.set 'Int_Target_Std 1.2)", // Больше естественных вариаций
+		"-eval", "(Parameter.set 'F0_Mean 180)", // Оптимальная частота для женского голоса
+		"-eval", "(Parameter.set 'F0_Std 30)", // Естественные вариации частоты
+		tempTextFile, "-o", tempAudioFile)
 
 	// Перенаправляем вывод
 	var stdout, stderr bytes.Buffer

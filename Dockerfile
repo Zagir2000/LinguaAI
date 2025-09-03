@@ -37,6 +37,9 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     festival \
     festvox-kallpc16k \
+    festvox-cmu-us-slt-arctic-hts \
+    festvox-cmu-us-rms-arctic-hts \
+    festvox-cmu-us-awb-arctic-hts \
     && rm -rf /var/lib/apt/lists/*
 
 # Добавляем метаданные
