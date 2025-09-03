@@ -45,8 +45,8 @@ LABEL build_date="$BUILD_DATE" \
       maintainer="Lingua AI Team"
 
 # Создаем пользователя для безопасности
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/bash -m appuser
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
