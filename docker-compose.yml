@@ -98,7 +98,7 @@ services:
       YUKASSA_SHOP_ID: ${YUKASSA_SHOP_ID:-test_shop_id}
       YUKASSA_SECRET_KEY: ${YUKASSA_SECRET_KEY:-test_secret_key}
       YUKASSA_TEST_MODE: ${YUKASSA_TEST_MODE:-true}
-      YUKASSA_PROVIDER_TOKEN: ${YUKASSA_PROVIDER_TOKEN:-}
+
     volumes:
       - ./logs:/app/logs
       - ./audio:/app/audio  # Общая папка для аудио файлов

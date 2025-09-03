@@ -874,8 +874,15 @@ func (h *Handler) handleRussianMessage(ctx context.Context, message *tgbotapi.Me
 
 // handleExerciseRequest обрабатывает запросы на упражнения/задания
 func (h *Handler) handleExerciseRequest(ctx context.Context, message *tgbotapi.Message, user *models.User) error {
-	// Генерируем быстрое упражнение в зависимости от уровня
-	exercisePrompt := h.prompts.GetExercisePrompt(user.Level)
+	// Получаем историю последних упражнений для избежания дублирования
+	recentHistory, err := h.messageService.GetChatHistory(ctx, user.ID, 5)
+	if err != nil {
+		h.logger.Error("ошибка получения истории для упражнений", zap.Error(err))
+		// Продолжаем без истории
+	}
+
+	// Генерируем быстрое упражнение в зависимости от уровня с учетом истории
+	exercisePrompt := h.prompts.GetExercisePromptWithHistory(user.Level, recentHistory)
 
 	aiMessages := []ai.Message{
 		{Role: "user", Content: exercisePrompt},
@@ -883,7 +890,7 @@ func (h *Handler) handleExerciseRequest(ctx context.Context, message *tgbotapi.M
 
 	start := time.Now()
 	options := ai.GenerationOptions{
-		Temperature: 0.8,
+		Temperature: 1.2, // Увеличиваем температуру для большей случайности
 		MaxTokens:   300,
 	}
 	response, err := h.aiClient.GenerateResponse(ctx, aiMessages, options)

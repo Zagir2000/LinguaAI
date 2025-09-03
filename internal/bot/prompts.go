@@ -170,3 +170,81 @@ func (sp *SystemPrompts) GetExerciseLevelRules(level string) string {
 - Делай упражнения разнообразными и полезными`
 	}
 }
+
+// GetExercisePromptWithHistory возвращает промпт для генерации упражнений с учетом истории
+func (sp *SystemPrompts) GetExercisePromptWithHistory(userLevel string, history interface{}) string {
+	levelRules := sp.GetExerciseLevelRules(userLevel)
+
+	// Добавляем больше типов упражнений для разнообразия
+	exerciseTypes := []string{
+		"Choose the correct verb form",
+		"Complete with the right preposition",
+		"Select the correct article (a/an/the)",
+		"Pick the right word order",
+		"Choose the correct tense",
+		"Complete with the proper pronoun",
+		"Select the right adjective form",
+		"Choose the correct plural form",
+		"Complete with the right modal verb",
+		"Pick the correct question form",
+		"Choose between countable/uncountable",
+		"Select the right comparative form",
+		"Complete with proper conditional",
+		"Choose the correct passive voice",
+		"Pick the right phrasal verb",
+		"Write a short sentence about travel",
+		"Complete the dialogue",
+		"Choose the correct word for the context",
+		"Form a question from the statement",
+		"Choose the right time expression",
+		"Select the correct gerund/infinitive",
+		"Choose the right reported speech",
+		"Complete with proper relative clause",
+		"Pick the correct indirect question",
+	}
+
+	// Добавляем информацию о том, что нужно избегать повторов
+	historyContext := `
+⚠️ ВАЖНО - ИЗБЕГАЙ ПОВТОРОВ:
+- НЕ создавай упражнения, похожие на предыдущие
+- Используй ДРУГИЕ темы и конструкции
+- Меняй типы упражнений
+- Будь КРЕАТИВНЫМ и РАЗНООБРАЗНЫМ`
+
+	return fmt.Sprintf(`Создай ОДНО НОВОЕ и РАЗНООБРАЗНОЕ упражнение по английскому для уровня: %s
+
+🎯 Доступные типы (выбери СЛУЧАЙНЫЙ):
+• %s
+
+СТРОГИЙ ФОРМАТ:
+<b>Exercise:</b> [тип]
+<b>Question:</b> [предложение с _____]
+<b>Options:</b> [вариант1/вариант2/вариант3]
+
+<tg-spoiler>🇷🇺 [Перевод предложения + правильный ответ + короткое объяснение как для ученика]</tg-spoiler>
+
+ПРАВИЛА ДЛЯ УРОВНЯ %s:
+%s
+
+ТРЕБОВАНИЯ:
+- ТОЛЬКО 1 упражнение
+- Используй РАЗНЫЕ темы: путешествия, спорт, технологии, природа, искусство, музыка, фильмы
+- Меняй времена и конструкции
+- Объяснение должно быть КОРОТКИМ и дружеским
+- БУДЬ КРЕАТИВНЫМ - не повторяйся!%s
+
+⚠️ ЖЁСТКОЕ ПРАВИЛО:
+- Ты обучаешь только английскому языку, ты помогаешь ему только с английским языком, не пиши код,
+- Не говори говори о других языках, не помогай ему ничем, кроме как обучению английского
+- Ты НЕ даёшь информацию о программировании, политике, науке и других темах.
+
+ВАЖНО:
+- Используй только <b> и <tg-spoiler>
+- НЕ используй **, #, списки!`,
+		userLevel,
+		strings.Join(exerciseTypes, "\n• "),
+		userLevel,
+		levelRules,
+		historyContext,
+	)
+}
