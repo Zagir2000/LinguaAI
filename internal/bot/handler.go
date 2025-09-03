@@ -412,8 +412,17 @@ func (h *Handler) handlePremiumPlanSelection(ctx context.Context, chatID int64, 
 
 	h.logger.Info("💳 Платеж создан через YooKassa",
 		zap.String("payment_id", paymentID),
+		zap.String("confirmation_url", confirmationURL),
 		zap.Int64("user_id", userID),
 		zap.Int("plan_id", planID))
+
+	// Проверяем, что ссылка не пустая
+	if confirmationURL == "" {
+		h.logger.Error("пустая ссылка на оплату",
+			zap.String("payment_id", paymentID),
+			zap.Int64("user_id", userID))
+		return h.sendMessage(chatID, "Ошибка генерации ссылки на оплату. Попробуйте позже.")
+	}
 
 	// Отправляем ссылку на оплату
 	messageText := fmt.Sprintf(`💳 <b>Платеж создан!</b>
@@ -2592,10 +2601,23 @@ func (h *Handler) hideUsername(username string) string {
 		return string(username[0]) + strings.Repeat("*", len(username)-1)
 	}
 
-	// Скрываем среднюю часть username
-	visibleStart := len(username) / 3
-	visibleEnd := len(username) - visibleStart
+	// Показываем первые 2-3 символа и последние 2-3 символа, остальное звездочки
+	showStart := 2
+	showEnd := 2
 
-	hidden := username[:visibleStart] + strings.Repeat("*", len(username)-visibleStart-visibleEnd) + username[visibleEnd:]
+	// Если username короткий, показываем меньше
+	if len(username) <= 6 {
+		showStart = 1
+		showEnd = 1
+	}
+
+	// Если username очень длинный, показываем больше
+	if len(username) > 10 {
+		showStart = 3
+		showEnd = 3
+	}
+
+	// Создаем строку со звездочками в середине
+	hidden := username[:showStart] + strings.Repeat("*", len(username)-showStart-showEnd) + username[len(username)-showEnd:]
 	return hidden
 }

@@ -40,8 +40,9 @@ type Amount struct {
 
 // Confirmation представляет способ подтверждения платежа
 type Confirmation struct {
-	Type      string `json:"type"`
-	ReturnURL string `json:"return_url"`
+	Type            string `json:"type"`
+	ReturnURL       string `json:"return_url"`
+	ConfirmationURL string `json:"confirmation_url"`
 }
 
 // PaymentResponse представляет ответ от ЮKassa
@@ -78,9 +79,11 @@ func NewYukassaClient(shopID, secretKey string, testMode bool, logger *zap.Logge
 // CreatePayment создает новый платеж в ЮKassa
 func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, currency string, description string) (string, string, error) {
 	// В тестовом режиме возвращаем тестовый ID платежа
-		if c.testMode {
+	if c.testMode {
 		testPaymentID := fmt.Sprintf("test_payment_%d", time.Now().Unix())
-		testURL := fmt.Sprintf("https://yoomoney.ru/checkout/payments/v2/contract?orderId=%s", testPaymentID)
+		// Создаем рабочую тестовую ссылку для демонстрации
+		testURL := fmt.Sprintf("https://yoomoney.ru/checkout/payments/v2/contract?orderId=%s&amount=%.2f&currency=%s",
+			testPaymentID, amount, currency)
 		c.logger.Info("создан тестовый платеж",
 			zap.String("payment_id", testPaymentID),
 			zap.String("confirmation_url", testURL),
@@ -150,9 +153,11 @@ func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, curre
 	c.logger.Info("платеж создан в ЮKassa",
 		zap.String("payment_id", paymentResp.ID),
 		zap.String("amount", paymentResp.Amount.Value),
-		zap.String("currency", paymentResp.Amount.Currency))
+		zap.String("currency", paymentResp.Amount.Currency),
+		zap.String("confirmation_url", paymentResp.Confirmation.ConfirmationURL),
+		zap.String("return_url", paymentResp.Confirmation.ReturnURL))
 
-	return paymentResp.ID, paymentResp.Confirmation.ReturnURL, nil
+	return paymentResp.ID, paymentResp.Confirmation.ConfirmationURL, nil
 }
 
 // CheckPaymentStatus проверяет статус платежа
