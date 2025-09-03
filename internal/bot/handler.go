@@ -698,11 +698,14 @@ func (h *Handler) isEnglishMessage(text string) bool {
 		}
 	}
 
-	return englishChars > russianChars && englishChars > 0
+	result := englishChars > russianChars && englishChars > 0
+	h.logger.Info("🔍 isEnglishMessage", zap.String("text", text), zap.Int("english_chars", englishChars), zap.Int("russian_chars", russianChars), zap.Bool("is_english", result))
+	return result
 }
 
 // handleEnglishMessage обрабатывает сообщения на английском языке
 func (h *Handler) handleEnglishMessage(ctx context.Context, message *tgbotapi.Message, user *models.User) error {
+	h.logger.Info("🔍 handleEnglishMessage вызван", zap.String("text", message.Text))
 
 	// Проверяем лимит сообщений для бесплатных пользователей
 	canSend, err := h.premiumService.CanSendMessage(ctx, user.ID)
@@ -2689,15 +2692,20 @@ func (h *Handler) createTTSButton(text string) tgbotapi.InlineKeyboardButton {
 
 // sendMessageWithTTS отправляет сообщение с кнопкой озвучки (если TTS включен)
 func (h *Handler) sendMessageWithTTS(chatID int64, text string) error {
+	h.logger.Info("🔍 sendMessageWithTTS вызван", zap.String("text", text), zap.Bool("tts_enabled", h.ttsService != nil))
+
 	// Если TTS отключен, отправляем обычное сообщение
 	if h.ttsService == nil {
+		h.logger.Info("🔍 TTS отключен, отправляем обычное сообщение")
 		return h.sendMessage(chatID, text)
 	}
 
 	// Извлекаем английский текст из ответа AI
 	englishText := h.extractEnglishText(text)
+	h.logger.Info("🔍 extractEnglishText результат", zap.String("original", text), zap.String("extracted", englishText))
 	if englishText == "" {
 		// Если английского текста нет, отправляем обычное сообщение
+		h.logger.Info("🔍 Английский текст не найден, отправляем обычное сообщение")
 		return h.sendMessage(chatID, text)
 	}
 
@@ -2722,10 +2730,24 @@ func (h *Handler) sendMessageWithTTS(chatID int64, text string) error {
 
 // extractEnglishText извлекает английский текст из ответа AI
 func (h *Handler) extractEnglishText(text string) string {
-	// Простая логика: ищем текст в кавычках или после двоеточия
-	// Это можно улучшить в зависимости от формата ответов AI
+	h.logger.Info("🔍 extractEnglishText вызван", zap.String("text", text))
 
-	// Ищем текст в кавычках
+	// 1. Ищем первую строку с английским текстом (до эмодзи флага)
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Пропускаем пустые строки и строки с эмодзи флагами
+		if line == "" || strings.Contains(line, "🇷🇺") || strings.Contains(line, "🇺🇸") {
+			continue
+		}
+		// Если строка содержит английские буквы, возвращаем её
+		if h.containsEnglish(line) {
+			h.logger.Info("🔍 Найден английский текст в строке", zap.String("line", line))
+			return line
+		}
+	}
+
+	// 2. Ищем текст в кавычках
 	if strings.Contains(text, "\"") {
 		start := strings.Index(text, "\"")
 		end := strings.LastIndex(text, "\"")
@@ -2733,12 +2755,13 @@ func (h *Handler) extractEnglishText(text string) string {
 			quoted := text[start+1 : end]
 			// Проверяем, что это английский текст (содержит латинские буквы)
 			if h.containsEnglish(quoted) {
+				h.logger.Info("🔍 Найден английский текст в кавычках", zap.String("quoted", quoted))
 				return quoted
 			}
 		}
 	}
 
-	// Ищем текст после двоеточия
+	// 3. Ищем текст после двоеточия
 	if strings.Contains(text, ":") {
 		parts := strings.Split(text, ":")
 		if len(parts) > 1 {
@@ -2746,16 +2769,19 @@ func (h *Handler) extractEnglishText(text string) string {
 			// Берем первую строку после двоеточия
 			lines := strings.Split(afterColon, "\n")
 			if len(lines) > 0 && h.containsEnglish(lines[0]) {
+				h.logger.Info("🔍 Найден английский текст после двоеточия", zap.String("after_colon", lines[0]))
 				return strings.TrimSpace(lines[0])
 			}
 		}
 	}
 
-	// Если ничего не найдено, возвращаем весь текст если он содержит английские буквы
+	// 4. Если ничего не найдено, возвращаем весь текст если он содержит английские буквы
 	if h.containsEnglish(text) {
+		h.logger.Info("🔍 Возвращаем весь текст как английский", zap.String("text", text))
 		return text
 	}
 
+	h.logger.Info("🔍 Английский текст не найден")
 	return ""
 }
 
