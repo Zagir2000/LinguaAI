@@ -24,14 +24,20 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
 # Финальный образ
-FROM alpine:latest
+FROM ubuntu:20.04
 
 # Build arguments для метаданных
 ARG BUILD_DATE
 ARG GIT_COMMIT
 
 # Устанавливаем необходимые пакеты включая Festival TTS
-RUN apk --no-cache add ca-certificates tzdata festival
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    tzdata \
+    festival \
+    festvox-kallpc16k \
+    && rm -rf /var/lib/apt/lists/*
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \

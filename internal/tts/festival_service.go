@@ -87,20 +87,20 @@ func (s *FestivalService) generateAudio(ctx context.Context, text string) ([]byt
 	tempAudioFile := fmt.Sprintf("/tmp/festival_audio_%d.wav", time.Now().UnixNano())
 	defer s.cleanupFile(tempAudioFile)
 
-	// Команда Festival для генерации аудио
-	cmd := exec.CommandContext(ctx, "festival", "--tts", tempTextFile)
+	// Команда text2wave для генерации аудио
+	cmd := exec.CommandContext(ctx, "text2wave", tempTextFile, "-o", tempAudioFile)
 
-	// Перенаправляем вывод в файл
+	// Перенаправляем вывод
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	// Выполняем команду
 	if err := cmd.Run(); err != nil {
-		s.logger.Error("ошибка выполнения Festival",
+		s.logger.Error("ошибка выполнения text2wave",
 			zap.Error(err),
 			zap.String("stderr", stderr.String()))
-		return nil, fmt.Errorf("ошибка выполнения Festival: %w", err)
+		return nil, fmt.Errorf("ошибка выполнения text2wave: %w", err)
 	}
 
 	// Читаем сгенерированное аудио
