@@ -23,8 +23,26 @@ COPY . .
 # Собираем приложение
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
-# Используем предварительно собранный базовый образ с TTS
-FROM ghcr.io/zagir2000/linguaai-base:latest AS final
+# Финальный образ с TTS
+FROM ubuntu:20.04 AS final
+
+# Build arguments для метаданных
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
+# Устанавливаем системные пакеты
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    tzdata \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем Mozilla TTS
+RUN pip3 install --no-cache-dir TTS && \
+    rm -rf /tmp/* /var/tmp/* /root/.cache/pip
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \
