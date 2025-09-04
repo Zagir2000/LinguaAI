@@ -20,7 +20,8 @@ WORKDIR /app
 RUN wget https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_amd64.tar.gz && \
     tar -xzf piper_amd64.tar.gz && \
     chmod +x piper && \
-    mv piper /usr/local/bin/ && \
+    mv piper /usr/local/bin/piper && \
+    chmod +x /usr/local/bin/piper && \
     rm piper_amd64.tar.gz
 
 # Создаем директории для голосов

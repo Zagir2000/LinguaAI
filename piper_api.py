@@ -73,7 +73,7 @@ def synthesize_speech(text: str, language: Optional[str] = None) -> bytes:
     try:
         # Выполняем синтез речи
         cmd = [
-            "piper",
+            "/usr/local/bin/piper",
             "--model", str(voice["model"]),
             "--config", str(voice["config"]),
             "--input_text", text,
