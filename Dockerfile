@@ -37,6 +37,10 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     python3 \
     python3-pip \
+    libsndfile1 \
+    libsndfile1-dev \
+    libasound2-dev \
+    portaudio19-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Добавляем метаданные
