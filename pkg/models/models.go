@@ -175,6 +175,7 @@ const (
 const (
 	RoleUser      = "user"
 	RoleAssistant = "assistant"
+	RoleSystem    = "system"
 )
 
 // Constants для состояний пользователя
@@ -197,7 +198,7 @@ func IsValidLevel(level string) bool {
 // IsValidRole проверяет корректность роли сообщения
 func IsValidRole(role string) bool {
 	switch role {
-	case RoleUser, RoleAssistant:
+	case RoleUser, RoleAssistant, RoleSystem:
 		return true
 	default:
 		return false

@@ -2649,8 +2649,12 @@ func (h *Handler) handleTTSCallback(ctx context.Context, callback *tgbotapi.Call
 	h.ttsCacheMutex.RUnlock()
 
 	if !exists {
-		h.logger.Error("текст не найден в кэше", zap.String("text_id", textID))
-		msg := tgbotapi.NewCallback(callback.ID, "❌ Текст для озвучки не найден")
+		h.logger.Error("текст не найден в кэше",
+			zap.String("text_id", textID),
+			zap.Int("cache_size", len(h.ttsTextCache)))
+
+		// Показываем пользователю более информативное сообщение
+		msg := tgbotapi.NewCallback(callback.ID, "❌ Текст для озвучки устарел. Попробуйте снова.")
 		h.bot.Request(msg)
 		return nil
 	}
