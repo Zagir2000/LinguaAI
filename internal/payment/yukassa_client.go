@@ -30,6 +30,7 @@ type PaymentRequest struct {
 	Confirmation Confirmation      `json:"confirmation"`
 	Capture      bool              `json:"capture"`
 	Description  string            `json:"description"`
+	Receipt      interface{}       `json:"receipt,omitempty"` // Пустое поле receipt
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
@@ -111,6 +112,7 @@ func (c *YukassaClient) CreatePayment(ctx context.Context, amount float64, curre
 		},
 		Capture:     true,
 		Description: description,
+		Receipt:     nil, // Пустое поле receipt
 		Metadata: map[string]string{
 			"created_at": time.Now().Format(time.RFC3339),
 		},
