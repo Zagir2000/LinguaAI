@@ -190,7 +190,8 @@ jobs:
                 - YUKASSA_TEST_MODE=${YUKASSA_TEST_MODE}
                 - TTS_ENABLED=${TTS_ENABLED}
               volumes:
-                - /opt/lingua-ai-tts/tts_env:/opt/tts_env:ro
+                - /opt/lingua-ai-tts/tts_env/bin/tts:/usr/local/bin/tts:ro
+                - /opt/lingua-ai-tts/tts_env/lib:/opt/tts_lib:ro
                 - /root/.local/share/tts:/root/.local/share/tts:ro
               ports:
                 - "8080:8080"
