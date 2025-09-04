@@ -189,6 +189,9 @@ jobs:
                 - YUKASSA_SECRET_KEY=${YUKASSA_SECRET_KEY}
                 - YUKASSA_TEST_MODE=${YUKASSA_TEST_MODE}
                 - TTS_ENABLED=${TTS_ENABLED}
+              volumes:
+                - /opt/lingua-ai-tts/tts_env/bin/tts:/usr/local/bin/tts:ro
+                - /root/.local/share/tts:/root/.local/share/tts:ro
               ports:
                 - "8080:8080"
               depends_on:
