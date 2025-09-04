@@ -71,8 +71,7 @@ func (s *MozillaService) checkMozillaTTS() error {
 	// Пробуем разные пути к TTS
 	ttsPaths := []string{
 		"tts",                                // Глобальный путь
-		"/usr/local/bin/tts",                 // Симлинк
-		"/opt/tts_env/bin/tts",               // Volume mount
+		"/opt/tts/bin/tts",                   // Volume mount
 		"/opt/lingua-ai-tts/tts_env/bin/tts", // Прямой путь к хосту
 	}
 
