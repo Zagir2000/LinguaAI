@@ -77,7 +77,8 @@ type YooKassaConfig struct {
 
 // TTSConfig содержит настройки Text-to-Speech
 type TTSConfig struct {
-	Enabled bool
+	Enabled  bool   `json:"enabled"`
+	BaseURL  string `json:"base_url"`
 }
 
 // Load загружает конфигурацию из переменных окружения и .env
@@ -120,6 +121,7 @@ func Load() (*Config, error) {
 
 	// TTS
 	cfg.TTS.Enabled = getEnvBoolDefault("TTS_ENABLED", false)
+	cfg.TTS.BaseURL = getEnvDefault("TTS_BASE_URL", "http://alltalk:7851")
 
 	// App
 	cfg.App.Env = getEnvDefault("APP_ENV", "development")

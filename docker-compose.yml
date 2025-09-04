@@ -54,6 +54,30 @@ services:
         reservations:
           memory: 1G
 
+  # AllTalk TTS сервер
+  alltalk:
+    image: erew123/alltalk_tts:latest
+    container_name: alltalk
+    ports:
+      - "7851:7851"  # AllTalk API порт
+    volumes:
+      - alltalk_models:/app/models  # Модели TTS
+      - alltalk_outputs:/app/outputs  # Выходные файлы
+    environment:
+      - CUDA_VISIBLE_DEVICES=""  # Отключаем CUDA, используем CPU
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7851/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
   # Приложение Lingua AI
   app:
     build: .
@@ -101,18 +125,19 @@ services:
       
       # TTS Configuration
       TTS_ENABLED: ${TTS_ENABLED:-false}
+      TTS_BASE_URL: ${TTS_BASE_URL:-http://alltalk:7851}
 
     volumes:
       - ./logs:/app/logs
       - ./audio:/app/audio  # Общая папка для аудио файлов
-      - /opt/lingua-ai-tts/tts_env:/opt/lingua-ai-tts/tts_env:ro  # Все TTS окружение
-      - /root/.local/share/tts:/root/.local/share/tts:ro  # TTS модели
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       whisper:
+        condition: service_healthy
+      alltalk:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -148,6 +173,10 @@ volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  alltalk_models:
+    driver: local
+  alltalk_outputs:
     driver: local
 
 networks:

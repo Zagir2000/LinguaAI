@@ -84,8 +84,8 @@ func main() {
 	// Инициализация TTS сервиса
 	var ttsService tts.TTSService
 	if cfg.TTS.Enabled {
-		ttsService = tts.NewMozillaService(logger)
-		logger.Info("Mozilla TTS сервис инициализирован")
+		ttsService = tts.NewAllTalkService(logger, cfg.TTS.BaseURL)
+		logger.Info("AllTalk TTS сервис инициализирован")
 	} else {
 		logger.Info("TTS сервис отключен")
 	}
