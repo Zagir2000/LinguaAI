@@ -97,6 +97,7 @@ def synthesize_speech(text: str, language: Optional[str] = None) -> bytes:
             os.unlink(temp_path)
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     """Проверка здоровья сервиса"""
     return {"status": "healthy", "service": "piper-tts"}
