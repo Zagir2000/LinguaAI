@@ -76,17 +76,16 @@ func (s *MozillaService) checkMozillaTTS() error {
 
 	var lastErr error
 	for _, ttsPath := range ttsPaths {
-		cmd := exec.Command(ttsPath, "--version")
-		output, err := cmd.Output()
-		if err == nil {
+		// Проверяем, что файл существует и исполняемый
+		if _, err := os.Stat(ttsPath); err == nil {
 			s.logger.Debug("mozilla tts найден",
-				zap.String("path", ttsPath),
-				zap.String("version", string(output)))
+				zap.String("path", ttsPath))
 			// Сохраняем рабочий путь
 			s.ttsPath = ttsPath
 			return nil
+		} else {
+			lastErr = err
 		}
-		lastErr = err
 	}
 
 	return fmt.Errorf("mozilla tts не найден ни в одном из путей: %w", lastErr)
@@ -95,7 +94,7 @@ func (s *MozillaService) checkMozillaTTS() error {
 // generateAudio генерирует аудио через Mozilla TTS
 func (s *MozillaService) generateAudio(ctx context.Context, text string) ([]byte, error) {
 	// Создаем временный файл для аудио
-	tempAudioFile := fmt.Sprintf("/tmp/mozilla_audio_%d.wav", time.Now().UnixNano())
+	tempAudioFile := fmt.Sprintf("/tmp/mozilla_audio_%d", time.Now().UnixNano())
 	defer s.cleanupFile(tempAudioFile)
 
 	// Команда Mozilla TTS для генерации аудио
@@ -116,14 +115,19 @@ func (s *MozillaService) generateAudio(ctx context.Context, text string) ([]byte
 		return nil, fmt.Errorf("ошибка выполнения mozilla tts: %w", err)
 	}
 
-	// Проверяем, что аудио файл был создан
-	if _, err := os.Stat(tempAudioFile); os.IsNotExist(err) {
-		s.logger.Error("аудио файл не был создан", zap.String("filename", tempAudioFile))
-		return nil, fmt.Errorf("аудио файл не был создан: %s", tempAudioFile)
+	// TTS создает файл с расширением .wa, проверяем оба варианта
+	actualAudioFile := tempAudioFile + ".wa"
+	if _, err := os.Stat(actualAudioFile); os.IsNotExist(err) {
+		// Пробуем с расширением .wav
+		actualAudioFile = tempAudioFile + ".wav"
+		if _, err := os.Stat(actualAudioFile); os.IsNotExist(err) {
+			s.logger.Error("аудио файл не был создан", zap.String("filename", tempAudioFile))
+			return nil, fmt.Errorf("аудио файл не был создан: %s", tempAudioFile)
+		}
 	}
 
 	// Читаем сгенерированное аудио
-	audioData, err := s.readAudioFile(tempAudioFile)
+	audioData, err := s.readAudioFile(actualAudioFile)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка чтения аудио: %w", err)
 	}
@@ -144,10 +148,13 @@ func (s *MozillaService) readAudioFile(filename string) ([]byte, error) {
 
 // cleanupFile удаляет временный файл
 func (s *MozillaService) cleanupFile(filename string) {
-	if err := os.Remove(filename); err != nil {
-		s.logger.Warn("ошибка удаления временного файла",
-			zap.String("filename", filename),
-			zap.Error(err))
+	// Удаляем файл с расширением .wa
+	if err := os.Remove(filename + ".wa"); err != nil {
+		s.logger.Debug("файл .wa не найден для удаления", zap.String("filename", filename+".wa"))
+	}
+	// Удаляем файл с расширением .wav
+	if err := os.Remove(filename + ".wav"); err != nil {
+		s.logger.Debug("файл .wav не найден для удаления", zap.String("filename", filename+".wav"))
 	}
 }
 
