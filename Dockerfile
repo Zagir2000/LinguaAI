@@ -30,19 +30,12 @@ FROM ubuntu:20.04 AS final
 ARG BUILD_DATE
 ARG GIT_COMMIT
 
-# Устанавливаем системные пакеты
+# Устанавливаем только необходимые системные пакеты
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     tzdata \
-    python3 \
-    python3-pip \
-    python3-venv \
     && rm -rf /var/lib/apt/lists/*
-
-# Устанавливаем Mozilla TTS
-RUN pip3 install --no-cache-dir TTS && \
-    rm -rf /tmp/* /var/tmp/* /root/.cache/pip
 
 # Добавляем метаданные
 LABEL build_date="$BUILD_DATE" \
