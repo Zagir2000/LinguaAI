@@ -105,7 +105,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./audio:/app/audio  # Общая папка для аудио файлов
-      - /opt/lingua-ai-tts/tts_env/bin/tts:/usr/local/bin/tts:ro  # TTS с хоста
+      - /opt/lingua-ai-tts/tts_env:/opt/tts_env:ro  # Все TTS окружение
       - /root/.local/share/tts:/root/.local/share/tts:ro  # TTS модели
     ports:
       - "8080:8080"

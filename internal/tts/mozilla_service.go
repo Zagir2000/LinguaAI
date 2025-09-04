@@ -13,7 +13,8 @@ import (
 
 // MozillaService предоставляет функциональность Text-to-Speech через Mozilla TTS
 type MozillaService struct {
-	logger *zap.Logger
+	logger  *zap.Logger
+	ttsPath string // Путь к исполняемому файлу TTS
 }
 
 // NewMozillaService создает новый Mozilla TTS сервис
@@ -67,14 +68,29 @@ func (s *MozillaService) SynthesizeText(ctx context.Context, text string) ([]byt
 
 // checkMozillaTTS проверяет, что Mozilla TTS установлен
 func (s *MozillaService) checkMozillaTTS() error {
-	cmd := exec.Command("tts", "--version")
-	output, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("mozilla tts не найден: %w", err)
+	// Пробуем разные пути к TTS
+	ttsPaths := []string{
+		"tts",                  // Глобальный путь
+		"/usr/local/bin/tts",   // Симлинк
+		"/opt/tts_env/bin/tts", // Volume mount
 	}
 
-	s.logger.Debug("Mozilla TTS версия", zap.String("version", string(output)))
-	return nil
+	var lastErr error
+	for _, ttsPath := range ttsPaths {
+		cmd := exec.Command(ttsPath, "--version")
+		output, err := cmd.Output()
+		if err == nil {
+			s.logger.Debug("mozilla tts найден",
+				zap.String("path", ttsPath),
+				zap.String("version", string(output)))
+			// Сохраняем рабочий путь
+			s.ttsPath = ttsPath
+			return nil
+		}
+		lastErr = err
+	}
+
+	return fmt.Errorf("mozilla tts не найден ни в одном из путей: %w", lastErr)
 }
 
 // generateAudio генерирует аудио через Mozilla TTS
@@ -84,7 +100,12 @@ func (s *MozillaService) generateAudio(ctx context.Context, text string) ([]byte
 	defer s.cleanupFile(tempAudioFile)
 
 	// Команда Mozilla TTS для генерации аудио
-	cmd := exec.CommandContext(ctx, "tts",
+	ttsPath := s.ttsPath
+	if ttsPath == "" {
+		ttsPath = "tts" // Fallback
+	}
+
+	cmd := exec.CommandContext(ctx, ttsPath,
 		"--text", text,
 		"--model_name", "tts_models/en/ljspeech/tacotron2-DDC",
 		"--out_path", tempAudioFile)
