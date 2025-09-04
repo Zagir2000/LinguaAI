@@ -102,11 +102,11 @@ services:
       # TTS Configuration
       TTS_ENABLED: ${TTS_ENABLED:-false}
 
-          volumes:
-        - ./logs:/app/logs
-        - ./audio:/app/audio  # Общая папка для аудио файлов
-ерь у        - /opt/lingua-ai-tts/tts_env:/opt/lingua-ai-tts/tts_env:ro  # Все TTS окружение
-        - /root/.local/share/tts:/root/.local/share/tts:ro  # TTS модели
+    volumes:
+      - ./logs:/app/logs
+      - ./audio:/app/audio  # Общая папка для аудио файлов
+      - /opt/lingua-ai-tts/tts_env:/opt/lingua-ai-tts/tts_env:ro  # Все TTS окружение
+      - /root/.local/share/tts:/root/.local/share/tts:ro  # TTS модели
     ports:
       - "8080:8080"
     depends_on:
