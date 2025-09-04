@@ -1,0 +1,51 @@
+# Dockerfile для Piper TTS API сервера
+FROM python:3.11-slim
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    unzip \
+    libsndfile1 \
+    libsndfile1-dev \
+    libasound2-dev \
+    portaudio19-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Скачиваем и устанавливаем Piper TTS
+RUN wget https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_amd64.tar.gz && \
+    tar -xzf piper_amd64.tar.gz && \
+    chmod +x piper && \
+    mv piper /usr/local/bin/ && \
+    rm piper_amd64.tar.gz
+
+# Создаем директории для голосов
+RUN mkdir -p /app/voices
+
+# Скачиваем русскую голосовую модель
+RUN wget https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx -O /app/voices/ru_RU-dmitri-medium.onnx && \
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json -O /app/voices/ru_RU-dmitri-medium.onnx.json
+
+# Скачиваем английскую голосовую модель
+RUN wget https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx -O /app/voices/en_US-lessac-medium.onnx && \
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json -O /app/voices/en_US-lessac-medium.onnx.json
+
+# Устанавливаем Python зависимости
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    python-multipart \
+    aiofiles
+
+# Создаем API сервер
+COPY piper_api.py /app/piper_api.py
+
+# Открываем порт
+EXPOSE 8000
+
+# Запускаем API сервер
+CMD ["python", "piper_api.py"]

@@ -84,8 +84,8 @@ func main() {
 	// Инициализация TTS сервиса
 	var ttsService tts.TTSService
 	if cfg.TTS.Enabled {
-		ttsService = tts.NewAllTalkService(logger, cfg.TTS.BaseURL)
-		logger.Info("AllTalk TTS сервис инициализирован")
+		ttsService = tts.NewPiperService(logger, cfg.TTS.BaseURL)
+		logger.Info("Piper TTS сервис инициализирован")
 	} else {
 		logger.Info("TTS сервис отключен")
 	}

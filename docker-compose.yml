@@ -54,29 +54,28 @@ services:
         reservations:
           memory: 1G
 
-  # AllTalk TTS сервер
-  alltalk:
-    image: erew123/alltalk_tts:latest
-    container_name: alltalk
+  # Piper TTS сервер
+  piper:
+    build:
+      context: .
+      dockerfile: Dockerfile.piper
+    container_name: piper-tts
     ports:
-      - "7851:7851"  # AllTalk API порт
+      - "8000:8000"  # Piper TTS API порт
     volumes:
-      - alltalk_models:/app/models  # Модели TTS
-      - alltalk_outputs:/app/outputs  # Выходные файлы
-    environment:
-      - CUDA_VISIBLE_DEVICES=""  # Отключаем CUDA, используем CPU
+      - piper_voices:/app/voices  # Голосовые модели
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7851/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 512M
         reservations:
-          memory: 2G
+          memory: 256M
 
   # Приложение Lingua AI
   app:
@@ -125,7 +124,7 @@ services:
       
       # TTS Configuration
       TTS_ENABLED: ${TTS_ENABLED:-false}
-      TTS_BASE_URL: ${TTS_BASE_URL:-http://alltalk:7851}
+      TTS_BASE_URL: ${TTS_BASE_URL:-http://piper:8000}
 
     volumes:
       - ./logs:/app/logs
@@ -137,7 +136,7 @@ services:
         condition: service_healthy
       whisper:
         condition: service_healthy
-      alltalk:
+      piper:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -174,9 +173,7 @@ volumes:
     driver: local
   pgadmin_data:
     driver: local
-  alltalk_models:
-    driver: local
-  alltalk_outputs:
+  piper_voices:
     driver: local
 
 networks:
