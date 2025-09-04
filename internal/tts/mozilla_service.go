@@ -104,8 +104,8 @@ func (s *MozillaService) generateAudio(ctx context.Context, text string) ([]byte
 		ttsPath = "tts" // Fallback
 	}
 
-	// Запускаем через Python, так как tts - это Python скрипт
-	cmd := exec.CommandContext(ctx, "python3", ttsPath,
+	// Запускаем через Python из volume mount, так как tts - это Python скрипт
+	cmd := exec.CommandContext(ctx, "/opt/lingua-ai-tts/tts_env/bin/python3", ttsPath,
 		"--text", text,
 		"--model_name", "tts_models/en/ljspeech/tacotron2-DDC",
 		"--out_path", tempAudioFile)
