@@ -159,16 +159,13 @@ async def synthesize(
         raise HTTPException(status_code=500, detail=f"Внутренняя ошибка: {str(e)}")
 
 @app.post("/synthesize-raw")
-async def synthesize_raw(
-    text: str = Form(..., description="Текст для синтеза речи"),
-    language: Optional[str] = Form(None, description="Язык (ru/en), если не указан - определяется автоматически")
-):
+async def synthesize_raw(request: SynthesizeRequest):
     """Синтез речи из текста (возвращает raw аудио данные)"""
     try:
-        if len(text) > 1000:
+        if len(request.text) > 1000:
             raise HTTPException(status_code=400, detail="Текст слишком длинный (максимум 1000 символов)")
         
-        audio_data = synthesize_speech(text, language)
+        audio_data = synthesize_speech(request.text, request.language)
         
         from fastapi.responses import Response
         return Response(
