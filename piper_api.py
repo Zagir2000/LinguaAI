@@ -82,6 +82,7 @@ def synthesize_speech(text: str, language: Optional[str] = None) -> bytes:
             "/usr/local/bin/piper/piper",
             "--model", str(voice["model"]),
             "--config", str(voice["config"]),
+            "--espeak_data", "/usr/local/bin/piper/espeak-ng-data",
             "--input_text", text,
             "--output_file", temp_path
         ]
