@@ -3,14 +3,20 @@ package tts
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
 )
+
+// SynthesizeRequest представляет запрос к Piper TTS API
+type SynthesizeRequest struct {
+	Text     string `json:"text"`
+	Language string `json:"language,omitempty"`
+}
 
 // PiperService предоставляет функциональность Text-to-Speech через Piper TTS API
 type PiperService struct {
@@ -52,21 +58,22 @@ func (s *PiperService) SynthesizeText(ctx context.Context, text string) ([]byte,
 func (s *PiperService) generateAudio(ctx context.Context, text string) ([]byte, error) {
 	url := fmt.Sprintf("%s/synthesize-raw", s.baseURL)
 
-	// Создаем multipart form data
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	// Создаем JSON запрос
+	request := SynthesizeRequest{
+		Text:     text,
+		Language: "", // будет определен автоматически
+	}
 
-	// Добавляем поля формы
-	_ = writer.WriteField("text", text)
-	// language будет определен автоматически по тексту
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка сериализации JSON: %w", err)
+	}
 
-	writer.Close()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, body)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", "application/json")
 
 	s.logger.Info("🎵 отправляем запрос к Piper TTS",
 		zap.String("url", url),
