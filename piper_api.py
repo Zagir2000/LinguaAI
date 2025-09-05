@@ -14,9 +14,15 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import uvicorn
 
 app = FastAPI(title="Piper TTS API", version="1.0.0")
+
+# Модели данных
+class SynthesizeRequest(BaseModel):
+    text: str
+    language: Optional[str] = None
 
 # Настройка CORS
 app.add_middleware(
